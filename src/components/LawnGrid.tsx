@@ -257,7 +257,7 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
               left: zombie.x - 50,
               // Extra vertical room above the head prevents cone/bucket helmets
               // from being clipped by the SVG viewport while keeping feet grounded.
-              top: y + (CELL_HEIGHT - 140) / 2 - 17,
+              top: y + (CELL_HEIGHT - 140) / 2 + 13,
               width: 105,
               height: 140
             }}
