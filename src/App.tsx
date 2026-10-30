@@ -602,12 +602,14 @@ export default function App() {
             finalWaveElapsedRef.current += dt;
             finalWaveSpawnAccumulatorRef.current += dt;
 
-            // Target kumulatif zombie tambahan: +12 (total 40) pada 20 detik,
-            // +22 (total 50) pada 40 detik, lalu bertambah 10 setiap 20 detik.
+            // ENDLESS FINAL WAVE: tidak ada batas jumlah zombie selama jawaban
+            // benar masih di bawah 25. Tambahan kumulatif mencapai +12 pada 20 dtk,
+            // +22 pada 40 dtk, +32 pada 60 dtk, +42 pada 80 dtk, dan seterusnya.
+            // Spawn pertama dimulai setelah 5 detik, lalu target terus naik tanpa batas.
             const elapsed = finalWaveElapsedRef.current;
-            const dynamicTarget = elapsed <= 20
-              ? 12
-              : 22 + Math.floor((elapsed - 40) / 20) * 10;
+            const dynamicTarget = elapsed < 20
+              ? Math.floor(elapsed / 5) * 3
+              : 12 + Math.floor((elapsed - 20) / 20) * 10;
 
             if (finalWaveSpawnAccumulatorRef.current >= 5 && finalWaveDynamicSpawnedRef.current < dynamicTarget) {
               finalWaveSpawnAccumulatorRef.current = 0;
