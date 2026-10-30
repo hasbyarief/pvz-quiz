@@ -32,3 +32,20 @@ Catatan verifikasi:
 - Pemeriksaan build otomatis pada lingkungan audit ini tidak dapat diselesaikan karena proses pemasangan dependensi melewati batas waktu. Karena itu, perubahan di atas merupakan perbaikan kode terarah, bukan klaim bahwa build telah berhasil diverifikasi.
 
 - Semua matahari alami yang jatuh dari langit sekarang menjadi matahari kuis (bukan lagi acak 50:50). Setelah target 25 soal tercapai, matahari langit kembali menjadi matahari biasa agar target kuis tetap 25.
+
+## GitHub Pages deployment fix
+
+- Updated `esbuild` to `^0.28.2` to satisfy Vite 8's optional peer dependency (`^0.27.0 || ^0.28.0`).
+- Configured Vite `base: '/pvz-quiz/'` for a GitHub Pages project site using the `pvz-quiz` repository.
+- The GitHub Actions workflow should use `npm install` (not `npm ci`) until a package lock file is committed.
+
+
+## Gameplay update — 30 October 2026
+
+- Victory now requires 25 **correct** quiz answers, not merely 25 submitted answers.
+- Incorrect answers still consume that quiz sun, but do not advance the correct-answer counter.
+- The in-game target counter now displays correct answers out of 25.
+- Quiz suns continue to appear until 25 correct answers are reached.
+- Zombie sub-wave schedules have been spaced farther apart to give players more preparation time.
+- The wave timer resets between waves so the next wave's scheduled groups do not all spawn immediately.
+- Vite is configured for the `/pvz-quiz/` GitHub Pages project path.

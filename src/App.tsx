@@ -120,12 +120,14 @@ export default function App() {
   const soundCooldownRef = useRef<{ [key: string]: number }>({});
   const isOpeningQuizRef = useRef<boolean>(false);
   const quizAnsweredRef = useRef<number>(0);
+  const quizCorrectRef = useRef<number>(0);
 
   // Sync state to refs on initialize
   const resetGame = useCallback(() => {
     isOpeningQuizRef.current = false;
     setIsPaused(false);
     quizAnsweredRef.current = 0;
+    quizCorrectRef.current = 0;
     resetQuizDeck(selectedSubject);
     setSun(INITIAL_SUN);
     setSelectedPlant(null);
@@ -300,7 +302,7 @@ export default function App() {
     if (!sunItem || sunItem.isCollected) return;
 
     // Matahari quiz ditandai dengan isQuiz: true (berikon tanda tanya ?)
-    const shouldShowQuiz = !!sunItem.isQuiz && quizAnsweredRef.current < 25;
+    const shouldShowQuiz = !!sunItem.isQuiz && quizCorrectRef.current < 25;
 
     if (shouldShowQuiz) {
       isOpeningQuizRef.current = true;
@@ -330,27 +332,31 @@ export default function App() {
 
   // Answer callback from SunQuizModal
   const handleQuizAnswer = (isCorrect: boolean) => {
+    // Every submitted answer is counted as an attempt, but only correct
+    // answers advance the 25-question victory requirement.
     const nextQuizAnswered = quizAnsweredRef.current + 1;
     quizAnsweredRef.current = nextQuizAnswered;
+
+    const nextQuizCorrect = quizCorrectRef.current + (isCorrect ? 1 : 0);
+    if (isCorrect) quizCorrectRef.current = nextQuizCorrect;
 
     setStats((prev) => ({
       ...prev,
       quizAnswered: nextQuizAnswered,
-      quizCorrect: prev.quizCorrect + (isCorrect ? 1 : 0)
+      quizCorrect: nextQuizCorrect
     }));
 
     if (activeQuizSunId) {
       const sunItem = sunsRef.current.find((s) => s.id === activeQuizSunId);
       if (sunItem && !sunItem.isCollected) {
-        // One quiz sun can be answered only once, even when the answer is wrong.
+        // Each quiz sun can be answered only once. A wrong answer consumes
+        // the sun but does not advance the correct-answer target.
         sunItem.isCollected = true;
         if (isCorrect) {
           soundManager.playSunCollect();
-          // Jawab soal dan benar: 50 poin
           setSun((prev) => prev + QUIZ_SUN_VALUE);
           setStats((prev) => ({ ...prev, sunCollected: prev.sunCollected + QUIZ_SUN_VALUE }));
 
-          // Floating "+50" particle
           particlesRef.current.push({
             id: `sunText-${Date.now()}-${Math.random()}`,
             type: 'sunText',
@@ -370,14 +376,14 @@ export default function App() {
     isOpeningQuizRef.current = false;
     lastTimeRef.current = performance.now();
 
-    // Aturan 2: Pemain menang ketika sudah menjawab 25 quiz yg muncul dan sudah melalui gelombang ke 5
+    // Victory requires 25 correct answers AND completion of wave 5.
     const currentWaveDef = GAME_WAVES[currentWaveIdx];
     const allSubWavesSpawned = currentWaveDef && currentWaveDef.subWaves.every((_, subIdx) =>
       subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
     );
     const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0;
 
-    if (nextQuizAnswered >= 25 && hasClearedWave5) {
+    if (nextQuizCorrect >= 25 && hasClearedWave5) {
       setGameState('VICTORY');
       soundManager.playVictory();
     }
@@ -469,7 +475,7 @@ export default function App() {
       const currentWaveDef = GAME_WAVES[currentWaveIdx];
       skySunTimerRef.current += dt;
       const wave5Done = currentWaveIdx >= GAME_WAVES.length - 1 && zombiesRef.current.length === 0 && (currentWaveDef ? currentWaveDef.subWaves.every((_, subIdx) => subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)) : false);
-      const sunInterval = (wave5Done && quizAnsweredRef.current < 25) ? 2.5 : SKY_SUN_INTERVAL;
+      const sunInterval = (wave5Done && quizCorrectRef.current < 25) ? 2.5 : SKY_SUN_INTERVAL;
 
       if (skySunTimerRef.current >= sunInterval) {
         skySunTimerRef.current = 0;
@@ -481,7 +487,7 @@ export default function App() {
         // Semua matahari alami yang jatuh dari langit menjadi matahari kuis.
         // Setelah target 25 soal tercapai, matahari berikutnya kembali menjadi
         // matahari biasa agar target kuis tidak terus bertambah.
-        const isQuiz = quizAnsweredRef.current < 25;
+        const isQuiz = quizCorrectRef.current < 25;
 
         sunsRef.current.push({
           id: `skySun-${Date.now()}-${Math.random()}`,
@@ -585,15 +591,17 @@ export default function App() {
 
           if (allSubWavesSpawned && zombiesRef.current.length === 0) {
             if (currentWaveIdx < GAME_WAVES.length - 1) {
+              // Each wave gets its own timer. Without resetting it, the next
+              // wave's scheduled sub-waves could all spawn immediately.
               setCurrentWaveIdx((prev) => prev + 1);
+              return 0;
             } else {
-              // Sudah melalui gelombang ke-5!
-              // Aturan 2: Pemain menang ketika sudah menjawab 25 quiz yg muncul dan sudah melalui gelombang ke 5
-              if (quizAnsweredRef.current >= 25) {
+              // Wave 5 is clear; the player still needs 25 correct answers.
+              if (quizCorrectRef.current >= 25) {
                 setGameState('VICTORY');
                 soundManager.playVictory();
               } else {
-                setWaveAlert(`JAWAB ${25 - quizAnsweredRef.current} KUIS LAGI UNTUK MENANG!`);
+                setWaveAlert(`JAWAB BENAR ${25 - quizCorrectRef.current} KUIS LAGI UNTUK MENANG!`);
               }
             }
           }

@@ -202,9 +202,9 @@ export const HUD: React.FC<HUDProps> = ({
 
         {/* Quiz Target Progress Tracker */}
         <div className="flex flex-col items-center justify-center bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800">
-          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Target Kuis</span>
+          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Jawaban Benar</span>
           <span className="text-xs font-black font-mono text-emerald-400">
-            {quizStats.answered}/25 {quizStats.answered >= 25 ? '✓' : ''}
+            {quizStats.correct}/25 {quizStats.correct >= 25 ? '✓' : ''}
           </span>
         </div>
 
