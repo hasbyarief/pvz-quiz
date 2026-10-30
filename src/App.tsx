@@ -964,7 +964,7 @@ export default function App() {
         />
 
         {/* CENTER: Main Lawn Grid */}
-        <main className="w-full flex items-center justify-center my-0.5 overflow-hidden">
+        <main className="w-full flex items-center justify-center my-0.5 overflow-visible shrink-0">
           <LawnGrid
             plants={plants}
             zombies={zombies}
