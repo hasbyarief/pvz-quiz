@@ -32,7 +32,7 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
       }, 750);
     } else {
       soundManager.playQuizWrong();
-      // Give student 2.2 seconds to read explanation before closing, or click continue
+      // Give student 1 seconds to read explanation before closing, or click continue
       setTimeout(() => {
         onAnswer(false);
       }, 2200);
