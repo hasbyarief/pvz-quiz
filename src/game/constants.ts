@@ -173,8 +173,8 @@ const BASE_GAME_WAVES: WaveDefinition[] = [
 ];
 
 
-// Gandakan jumlah zombie 3x untuk setiap sub-wave, sambil menyebarkan
-// zombie tambahan ke jalur lain agar tidak menumpuk pada satu baris.
+// Wave 1-2: pertahankan penggandaan 3x dengan sebaran jalur seperti sebelumnya.
+// Wave 3-5: zombie tambahan datang bergerombol 2-3 sekaligus pada jalur yang sama.
 export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES.map((wave) => ({
   ...wave,
   subWaves: wave.subWaves.map((subWave) => ({
@@ -184,7 +184,9 @@ export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES.map((wave) => ({
         ...zombie,
         row: zombie.row === undefined
           ? undefined
-          : (zombie.row + copyIndex) % GRID_ROWS
+          : wave.waveNumber >= 3
+            ? zombie.row
+            : (zombie.row + copyIndex) % GRID_ROWS
       }))
     )
   }))
