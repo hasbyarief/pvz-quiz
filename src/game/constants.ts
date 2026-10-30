@@ -99,7 +99,7 @@ export interface WaveDefinition {
 }
 
 // 50% Lebih Mudah: Jarak spawn lebih lapang, jumlah zombie lebih ramah untuk anak-anak belajar
-export const GAME_WAVES: WaveDefinition[] = [
+const BASE_GAME_WAVES: WaveDefinition[] = [
   {
     waveNumber: 1,
     title: 'Gelombang 1: Zombie Pertama Muncul',
@@ -171,3 +171,21 @@ export const GAME_WAVES: WaveDefinition[] = [
     ]
   }
 ];
+
+
+// Gandakan jumlah zombie 3x untuk setiap sub-wave, sambil menyebarkan
+// zombie tambahan ke jalur lain agar tidak menumpuk pada satu baris.
+export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES.map((wave) => ({
+  ...wave,
+  subWaves: wave.subWaves.map((subWave) => ({
+    ...subWave,
+    zombies: subWave.zombies.flatMap((zombie) =>
+      [0, 1, 2].map((copyIndex) => ({
+        ...zombie,
+        row: zombie.row === undefined
+          ? undefined
+          : (zombie.row + copyIndex) % GRID_ROWS
+      }))
+    )
+  }))
+}));
