@@ -255,9 +255,11 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
             className="absolute z-20 pointer-events-none transition-transform"
             style={{
               left: zombie.x - 50,
-              top: y + (CELL_HEIGHT - 126) / 2 - 12,
+              // Extra vertical room above the head prevents cone/bucket helmets
+              // from being clipped by the SVG viewport while keeping feet grounded.
+              top: y + (CELL_HEIGHT - 140) / 2 - 17,
               width: 105,
-              height: 128
+              height: 140
             }}
           >
             <ZombieSVG
