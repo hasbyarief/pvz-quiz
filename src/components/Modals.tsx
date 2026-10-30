@@ -227,7 +227,7 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* Cara Main Singkat */}
             <div className="text-[11px] text-slate-400 mb-4 space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800 w-full text-left">
               <p><strong className="text-amber-300">• Ambil Matahari:</strong> Klik matahari yang jatuh dari langit, lalu pilih jawaban yang tepat untuk kuis!</p>
-              <p><strong className="text-slate-200">• Tanam Pasukan:</strong> Klik kartu tanaman, lalu klik petak rumput kosong (Batal: Klik Kanan / ESC).</p>
+              <p><strong className="text-slate-200">• Tanam Pasukan:</strong> Klik kartu tanaman, lalu klik petak rumput kosong.</p>
               <p><strong className="text-emerald-300">• Topik Soal:</strong> Topik kuis terkunci selama permainan berlangsung sesuai pilihan awal Anda.</p>
             </div>
 
