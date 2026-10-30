@@ -1022,6 +1022,26 @@ export default function App() {
           transformOrigin: 'center center'
         }}
       >
+        {/* Fullscreen toggle */}
+        <button
+          type="button"
+          onClick={handleToggleFullscreen}
+          title={isFullscreen ? 'Keluar dari fullscreen' : 'Masuk fullscreen'}
+          aria-label={isFullscreen ? 'Keluar dari fullscreen' : 'Masuk fullscreen'}
+          className="absolute top-3 right-3 z-[80] flex items-center justify-center w-9 h-9 rounded-lg border border-amber-300/50 bg-[#271609]/90 text-amber-100 shadow-lg hover:bg-amber-700/90 hover:text-white active:scale-95 transition"
+        >
+          {isFullscreen ? (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5" />
+              <path d="M3 8l6-5M21 8l-6-5M3 16l6 5M21 16l-6 5" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3" />
+            </svg>
+          )}
+        </button>
+
         {/* TOP: HUD Inventory */}
         <HUD
           sun={sun}
@@ -1081,47 +1101,18 @@ export default function App() {
             <div className="w-1.5 h-0.5 bg-amber-950/70" />
           </div>
 
-          {/* Left: PvZ Wood Plaque for Current Subject */}
-          <div className="flex items-center gap-2 pl-3">
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#271609]/90 border border-[#6b3e1a] shadow-inner">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="text-[11px] font-black text-amber-200 uppercase tracking-wide font-sans">
-                {SUBJECTS.find((s) => s.id === selectedSubject)?.name}
-              </span>
-              <span className="text-[10px] text-amber-400 font-bold hidden sm:inline">
-                ({SUBJECTS.find((s) => s.id === selectedSubject)?.englishTitle})
-              </span>
-            </div>
-            <span className="text-[11px] text-amber-100/90 font-medium hidden md:inline">
-              • Ambil matahari dari langit untuk amunisi!
+          {/* Center: Game title and creator credit */}
+          <div className="w-full h-full flex items-center justify-center gap-3 sm:gap-5 px-8">
+            <span className="text-amber-400 text-lg sm:text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]" aria-hidden="true">🌻</span>
+            <span className="h-1 w-10 sm:w-20 rounded-full bg-gradient-to-r from-amber-500 to-yellow-300 shadow-[0_1px_3px_rgba(0,0,0,0.8)]" aria-hidden="true" />
+            <span className="text-xl sm:text-2xl font-black tracking-wide text-amber-400 uppercase font-sans drop-shadow-[0_2px_1px_rgba(0,0,0,0.95)]">
+              PVZ-QUIZ
             </span>
-          </div>
-
-          {/* Center: Wave Progress Plaque */}
-          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#271609]/90 border border-[#7a4820] shadow-md">
-            <span className="text-[11px] font-black tracking-wider text-rose-300 uppercase font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
-              GELOMBANG {currentWaveIdx + 1} / {totalWaves}
+            <span className="text-xs sm:text-lg font-bold text-amber-100 tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.95)]">
+              created by hasbyarief
             </span>
-            <div className="w-20 sm:w-28 h-2 rounded-full bg-stone-900/90 border border-stone-700/80 overflow-hidden relative">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 transition-all duration-300"
-                style={{ width: `${Math.round(waveProgress * 100)}%` }}
-              />
-            </div>
-          </div>
-
-          {/* Right: Authentic PvZ Arcade Control Tips */}
-          <div className="flex items-center gap-2 text-[11px] text-amber-200/90 pr-3 font-semibold">
-            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-[#6b3e1a] text-amber-300 font-bold">
-              Klik Kiri
-            </span>
-            <span>Tanam / Ambil Sun</span>
-            <span className="text-amber-500/60 hidden sm:inline">•</span>
-            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-[#6b3e1a] text-amber-300 font-bold hidden sm:inline">
-              Klik Kanan / Esc
-            </span>
-            <span className="hidden sm:inline">Batal</span>
+            <span className="h-1 w-10 sm:w-20 rounded-full bg-gradient-to-r from-yellow-300 to-amber-500 shadow-[0_1px_3px_rgba(0,0,0,0.8)]" aria-hidden="true" />
+            <span className="text-amber-400 text-lg sm:text-2xl drop-shadow-[0_2px_2px_rgba(0,0,0,0.9)]" aria-hidden="true">🌻</span>
           </div>
         </footer>
       </div>
