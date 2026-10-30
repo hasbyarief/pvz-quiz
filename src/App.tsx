@@ -116,6 +116,7 @@ export default function App() {
   // Internal loop timers
   const lastTimeRef = useRef<number>(performance.now());
   const skySunTimerRef = useRef<number>(0);
+  const skySunSpawnCountRef = useRef<number>(0);
   const subWaveSpawnedRef = useRef<Set<string>>(new Set());
   const soundCooldownRef = useRef<{ [key: string]: number }>({});
   const isOpeningQuizRef = useRef<boolean>(false);
@@ -177,9 +178,17 @@ export default function App() {
     });
 
     skySunTimerRef.current = 0;
+    skySunSpawnCountRef.current = 0;
     subWaveSpawnedRef.current.clear();
     lastTimeRef.current = performance.now();
   }, [selectedSubject]);
+
+  // Semua banner/peringatan wave otomatis hilang setelah 5 detik.
+  useEffect(() => {
+    if (!waveAlert) return;
+    const timeoutId = window.setTimeout(() => setWaveAlert(null), 5000);
+    return () => window.clearTimeout(timeoutId);
+  }, [waveAlert]);
 
   const handleStartGame = () => {
     resetGame();
@@ -484,10 +493,11 @@ export default function App() {
         const spawnX = LAWN_LEFT_OFFSET + targetCol * CELL_WIDTH + CELL_WIDTH / 2;
         const targetY = targetRow * CELL_HEIGHT + CELL_HEIGHT / 2;
 
-        // Semua matahari alami yang jatuh dari langit menjadi matahari kuis.
-        // Setelah target 25 soal tercapai, matahari berikutnya kembali menjadi
-        // matahari biasa agar target kuis tidak terus bertambah.
-        const isQuiz = quizCorrectRef.current < 25;
+        // Rasio kemunculan matahari langit: 10 biasa : 5 kuis (pola 2:1).
+        // Setiap matahari ketiga menjadi kuis; setelah 25 jawaban benar,
+        // seluruh matahari berikutnya menjadi matahari biasa.
+        const isQuiz = quizCorrectRef.current < 25 && skySunSpawnCountRef.current % 3 === 2;
+        skySunSpawnCountRef.current += 1;
 
         sunsRef.current.push({
           id: `skySun-${Date.now()}-${Math.random()}`,
@@ -580,8 +590,6 @@ export default function App() {
               soundManager.playHugeWave();
               soundCooldownRef.current['alarm'] = 5.0;
             }
-          } else if (nextTime > 4.5 && waveAlert) {
-            setWaveAlert(null);
           }
 
           // Advance wave if all subwaves spawned AND all zombies eliminated
