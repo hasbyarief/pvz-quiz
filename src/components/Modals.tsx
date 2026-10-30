@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { GameState } from '../types/game';
-import { Play, RotateCcw, ShieldAlert, Award, Apple, Shirt, PawPrint, Calendar, Smile, BookOpen, Utensils, Car, CheckCircle, GraduationCap, ChevronDown, ChevronUp, Trophy, Sparkles, Skull } from 'lucide-react';
+import { Play, RotateCcw, ShieldAlert, Award, Apple, Shirt, PawPrint, Calendar, Smile, BookOpen, Utensils, Car, CheckCircle, GraduationCap, ChevronDown, ChevronUp, Trophy, Sparkles, Skull, Maximize2, Minimize2 } from 'lucide-react';
 import { PlantRenderer } from './svg/PlantRenderer';
 import { ZombieSVG } from './svg/ZombieSVG';
 import { PLANTS } from '../game/constants';
@@ -9,6 +9,8 @@ import { SubjectCategory, SUBJECTS } from '../game/quizData';
 interface ModalsProps {
   gameState: GameState;
   onStartGame: () => void;
+  onToggleFullscreen: () => void;
+  isFullscreen: boolean;
   onRestartGame: () => void;
   waveAlert: string | null;
   selectedSubject: SubjectCategory;
@@ -29,6 +31,8 @@ interface ModalsProps {
 export const Modals: React.FC<ModalsProps> = ({
   gameState,
   onStartGame,
+  onToggleFullscreen,
+  isFullscreen,
   onRestartGame,
   waveAlert,
   selectedSubject,
@@ -91,6 +95,20 @@ export const Modals: React.FC<ModalsProps> = ({
       {gameState === 'READY' && (
         <div className="fixed inset-0 z-50 bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
           <div className="bg-gradient-to-b from-slate-900 to-slate-950 border-2 border-emerald-500/70 rounded-3xl max-w-2xl w-full p-4 sm:p-6 shadow-2xl text-center flex flex-col items-center my-auto max-h-[96vh] overflow-y-auto">
+            {/* Fullscreen control on the initial menu */}
+            <div className="w-full flex justify-end mb-1">
+              <button
+                type="button"
+                onClick={onToggleFullscreen}
+                title={isFullscreen ? 'Keluar dari fullscreen' : 'Masuk fullscreen'}
+                aria-label={isFullscreen ? 'Keluar dari fullscreen' : 'Masuk fullscreen'}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-emerald-500/40 bg-slate-800/90 px-3 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-950 hover:border-emerald-400 transition-colors"
+              >
+                {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                <span>{isFullscreen ? 'KELUAR FULLSCREEN' : 'FULLSCREEN'}</span>
+              </button>
+            </div>
+
             {/* Title Header */}
             <div className="flex items-center gap-3 mb-1">
               <div className="w-10 h-10 sm:w-12 sm:h-12">

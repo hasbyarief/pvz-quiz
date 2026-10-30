@@ -1171,6 +1171,8 @@ export default function App() {
       <Modals
         gameState={gameState}
         onStartGame={handleStartGame}
+        onToggleFullscreen={handleToggleFullscreen}
+        isFullscreen={isFullscreen}
         onRestartGame={handleRestart}
         waveAlert={waveAlert}
         selectedSubject={selectedSubject}
