@@ -126,6 +126,10 @@ export default function App() {
   const isOpeningQuizRef = useRef<boolean>(false);
   const quizAnsweredRef = useRef<number>(0);
   const quizCorrectRef = useRef<number>(0);
+  // Overtime Final Wave: terus menambah pasukan selama target 25 jawaban benar belum tercapai.
+  const finalWaveElapsedRef = useRef<number>(0);
+  const finalWaveSpawnAccumulatorRef = useRef<number>(0);
+  const finalWaveDynamicSpawnedRef = useRef<number>(0);
 
   // Sync state to refs on initialize
   const resetGame = useCallback(() => {
@@ -184,6 +188,9 @@ export default function App() {
     skySunTimerRef.current = 0;
     skySunSpawnCountRef.current = 0;
     subWaveSpawnedRef.current.clear();
+    finalWaveElapsedRef.current = 0;
+    finalWaveSpawnAccumulatorRef.current = 0;
+    finalWaveDynamicSpawnedRef.current = 0;
     lastTimeRef.current = performance.now();
   }, [selectedSubject]);
 
@@ -487,8 +494,9 @@ export default function App() {
       // 2. SPAWN SKY SUN
       const currentWaveDef = GAME_WAVES[currentWaveIdx];
       skySunTimerRef.current += dt;
-      const wave5Done = currentWaveIdx >= GAME_WAVES.length - 1 && zombiesRef.current.length === 0 && (currentWaveDef ? currentWaveDef.subWaves.every((_, subIdx) => subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)) : false);
-      const sunInterval = (wave5Done && quizCorrectRef.current < 25) ? 2.5 : SKY_SUN_INTERVAL;
+      const finalWaveScriptComplete = currentWaveIdx >= GAME_WAVES.length - 1 && !!currentWaveDef && currentWaveDef.subWaves.every((_, subIdx) => subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`));
+      // Selama Final Wave overtime, matahari kuis tetap lebih sering muncul meski zombie masih hidup.
+      const sunInterval = (finalWaveScriptComplete && quizCorrectRef.current < 25) ? 2.5 : SKY_SUN_INTERVAL;
 
       if (skySunTimerRef.current >= sunInterval) {
         skySunTimerRef.current = 0;
@@ -587,6 +595,65 @@ export default function App() {
               }
             }
           });
+
+          // FINAL WAVE OVERTIME: setelah 28 zombie terjadwal muncul, pasukan tambahan
+          // terus berdatangan sampai pemain menjawab benar 25 soal.
+          if (currentWaveIdx === GAME_WAVES.length - 1 && currentWaveDef.subWaves.every((_, subIdx) => subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)) && quizCorrectRef.current < 25) {
+            finalWaveElapsedRef.current += dt;
+            finalWaveSpawnAccumulatorRef.current += dt;
+
+            // Target kumulatif zombie tambahan: +12 (total 40) pada 20 detik,
+            // +22 (total 50) pada 40 detik, lalu bertambah 10 setiap 20 detik.
+            const elapsed = finalWaveElapsedRef.current;
+            const dynamicTarget = elapsed <= 20
+              ? 12
+              : 22 + Math.floor((elapsed - 40) / 20) * 10;
+
+            if (finalWaveSpawnAccumulatorRef.current >= 5 && finalWaveDynamicSpawnedRef.current < dynamicTarget) {
+              finalWaveSpawnAccumulatorRef.current = 0;
+              const batchSize = Math.min(3, dynamicTarget - finalWaveDynamicSpawnedRef.current);
+              const batchIndex = Math.floor(finalWaveDynamicSpawnedRef.current / 3);
+              // Kelompok bergantian ke lima jalur; anggota satu kelompok datang pada jalur sama.
+              const row = batchIndex % GRID_ROWS;
+
+              for (let i = 0; i < batchSize; i++) {
+                const dynamicIndex = finalWaveDynamicSpawnedRef.current + i;
+                const type = dynamicIndex % 11 === 10
+                  ? 'flag'
+                  : dynamicIndex % 5 === 4
+                    ? 'buckethead'
+                    : dynamicIndex % 3 === 2
+                      ? 'conehead'
+                      : 'basic';
+                const isCone = type === 'conehead';
+                const isBucket = type === 'buckethead';
+                const isFlag = type === 'flag';
+                const hp = ZOMBIE_BODY_HP;
+
+                zombiesRef.current.push({
+                  id: `final-overtime-${Date.now()}-${dynamicIndex}-${Math.random()}`,
+                  type,
+                  row,
+                  x: ZOMBIE_SPAWN_X + i * 34,
+                  hp,
+                  maxHp: hp,
+                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
+                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
+                  speed: isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL,
+                  isEating: false,
+                  eatingTargetId: null,
+                  slowTimer: 0,
+                  animTime: Math.random() * 5
+                });
+              }
+
+              finalWaveDynamicSpawnedRef.current += batchSize;
+              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+                soundManager.playZombieGroan();
+                soundCooldownRef.current['groan'] = 8.0;
+              }
+            }
+          }
 
           // Check wave banner alert
           if (currentWaveDef.isHugeWave && nextTime >= 1.0 && nextTime <= 4.0) {
