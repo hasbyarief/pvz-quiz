@@ -1,0 +1,8 @@
+{
+  "name": "PVZ Quiz",
+  "description": "A web-based Plants vs. Zombies clone featuring custom SVG graphics, dynamic gameplay, and smooth performance in one file.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

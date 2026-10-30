@@ -1,0 +1,1079 @@
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  PlantType,
+  ZombieType,
+  GameState,
+  PlantInstance,
+  ZombieInstance,
+  ProjectileInstance,
+  SunInstance,
+  LawnMowerInstance,
+  ParticleEffect
+} from './types/game';
+import {
+  GRID_ROWS,
+  GRID_COLS,
+  STAGE_WIDTH,
+  STAGE_HEIGHT,
+  CELL_WIDTH,
+  CELL_HEIGHT,
+  LAWN_LEFT_OFFSET,
+  LAWN_WIDTH,
+  INITIAL_SUN,
+  SKY_SUN_INTERVAL,
+  SUN_VALUE,
+  QUIZ_SUN_VALUE,
+  SUN_LIFETIME,
+  PLANTS,
+  SUNFLOWER_PRODUCE_INTERVAL,
+  PEASHOOTER_SHOOT_INTERVAL,
+  PEA_DAMAGE,
+  PEA_SPEED,
+  SNOW_PEA_SLOW_DURATION,
+  CHERRY_BOMB_FUSE,
+  CHERRY_BOMB_DAMAGE,
+  ZOMBIE_SPEED_NORMAL,
+  ZOMBIE_DAMAGE_PER_SEC,
+  LAWN_MOWER_SPEED,
+  GAME_WAVES,
+  ZOMBIE_SPAWN_X
+} from './game/constants';
+import { soundManager } from './audio/soundManager';
+import { HUD } from './components/HUD';
+import { LawnGrid } from './components/LawnGrid';
+import { Modals } from './components/Modals';
+import { SunQuizModal } from './components/SunQuizModal';
+import { PlantRenderer } from './components/svg/PlantRenderer';
+import { ShovelSVG } from './components/svg/ShovelSVG';
+import { SubjectCategory, SUBJECTS, getRandomQuestion, resetQuizDeck, QuizQuestion } from './game/quizData';
+
+export default function App() {
+  // Game lifecycle state
+  const [gameState, setGameState] = useState<GameState>('READY');
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [isMuted, setIsMuted] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [stageScale, setStageScale] = useState<number>(1);
+
+  // Educational Quiz State (Dipilih di awal, terkunci saat bermain)
+  const [selectedSubject, setSelectedSubject] = useState<SubjectCategory>('fruits');
+  const [activeQuiz, setActiveQuiz] = useState<QuizQuestion | null>(null);
+  const [activeQuizSunId, setActiveQuizSunId] = useState<string | null>(null);
+
+  // Economy & Inventory
+  const [sun, setSun] = useState<number>(INITIAL_SUN);
+  const [selectedPlant, setSelectedPlant] = useState<PlantType | null>(null);
+  const [isShovelActive, setIsShovelActive] = useState<boolean>(false);
+  const [cooldowns, setCooldowns] = useState<Record<PlantType, number>>({
+    sunflower: 0,
+    peashooter: 0,
+    repeater: 0,
+    wallnut: 0,
+    cherrybomb: 0,
+    snowpea: 0
+  });
+
+  // Entities state for UI rendering
+  const [plants, setPlants] = useState<PlantInstance[]>([]);
+  const [zombies, setZombies] = useState<ZombieInstance[]>([]);
+  const [projectiles, setProjectiles] = useState<ProjectileInstance[]>([]);
+  const [suns, setSuns] = useState<SunInstance[]>([]);
+  const [lawnMowers, setLawnMowers] = useState<LawnMowerInstance[]>([
+    { row: 0, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+    { row: 1, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+    { row: 2, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+    { row: 3, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+    { row: 4, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED }
+  ]);
+  const [particles, setParticles] = useState<ParticleEffect[]>([]);
+
+  // Simulation Refs for single-source-of-truth delta-time loop
+  const plantsRef = useRef<PlantInstance[]>([]);
+  const zombiesRef = useRef<ZombieInstance[]>([]);
+  const projectilesRef = useRef<ProjectileInstance[]>([]);
+  const sunsRef = useRef<SunInstance[]>([]);
+  const mowersRef = useRef<LawnMowerInstance[]>([]);
+  const particlesRef = useRef<ParticleEffect[]>([]);
+
+  // Wave & Spawning
+  const [currentWaveIdx, setCurrentWaveIdx] = useState<number>(0);
+  const [waveTimer, setWaveTimer] = useState<number>(0);
+  const [waveAlert, setWaveAlert] = useState<string | null>(null);
+
+  // Interaction & UI cursor
+  const [hoveredCell, setHoveredCell] = useState<{ row: number; col: number } | null>(null);
+  const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+
+  // Statistics for Victory / Game Over / Quiz summary
+  const [stats, setStats] = useState({
+    zombiesDefeated: 0,
+    sunCollected: 0,
+    lawnMowersSaved: 5,
+    quizAnswered: 0,
+    quizCorrect: 0
+  });
+
+  // Internal loop timers
+  const lastTimeRef = useRef<number>(performance.now());
+  const skySunTimerRef = useRef<number>(0);
+  const subWaveSpawnedRef = useRef<Set<string>>(new Set());
+  const soundCooldownRef = useRef<{ [key: string]: number }>({});
+  const isOpeningQuizRef = useRef<boolean>(false);
+  const quizAnsweredRef = useRef<number>(0);
+
+  // Sync state to refs on initialize
+  const resetGame = useCallback(() => {
+    isOpeningQuizRef.current = false;
+    setIsPaused(false);
+    quizAnsweredRef.current = 0;
+    resetQuizDeck(selectedSubject);
+    setSun(INITIAL_SUN);
+    setSelectedPlant(null);
+    setIsShovelActive(false);
+    setActiveQuiz(null);
+    setActiveQuizSunId(null);
+    setCooldowns({
+      sunflower: 0,
+      peashooter: 0,
+      repeater: 0,
+      wallnut: 0,
+      cherrybomb: 0,
+      snowpea: 0
+    });
+
+    const initMowers: LawnMowerInstance[] = [
+      { row: 0, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+      { row: 1, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+      { row: 2, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+      { row: 3, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED },
+      { row: 4, x: 8, state: 'idle', speed: LAWN_MOWER_SPEED }
+    ];
+
+    plantsRef.current = [];
+    zombiesRef.current = [];
+    projectilesRef.current = [];
+    sunsRef.current = [];
+    mowersRef.current = initMowers;
+    particlesRef.current = [];
+
+    setPlants([]);
+    setZombies([]);
+    setProjectiles([]);
+    setSuns([]);
+    setLawnMowers(initMowers);
+    setParticles([]);
+
+    setCurrentWaveIdx(0);
+    setWaveTimer(0);
+    setWaveAlert(null);
+    setStats({
+      zombiesDefeated: 0,
+      sunCollected: 0,
+      lawnMowersSaved: 5,
+      quizAnswered: 0,
+      quizCorrect: 0
+    });
+
+    skySunTimerRef.current = 0;
+    subWaveSpawnedRef.current.clear();
+    lastTimeRef.current = performance.now();
+  }, [selectedSubject]);
+
+  const handleStartGame = () => {
+    resetGame();
+    setGameState('PLAYING');
+    soundManager.startBgm();
+    // Terapkan layar fullscreen otomatis saat mulai permainan
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
+  const handleRestart = () => {
+    resetGame();
+    setGameState('PLAYING');
+    soundManager.startBgm();
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
+  // Keyboard and Right Click handlers to cancel selection
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSelectedPlant(null);
+        setIsShovelActive(false);
+      }
+    };
+
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('mousemove', handleMouseMove);
+
+    const handleFullscreenChange = () => {
+      const isFull = !!document.fullscreenElement;
+      setIsFullscreen(isFull);
+      handleResize();
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    // Responsive 16:9 Stage Scaling (with comfortable margin when windowed)
+    const handleResize = () => {
+      const winW = window.innerWidth;
+      const winH = window.innerHeight;
+      const scaleX = winW / STAGE_WIDTH;
+      const scaleY = winH / STAGE_HEIGHT;
+      // Fit 16:9 stage into current viewport with gentle padding so it's not overly stretched
+      const baseScale = Math.min(scaleX, scaleY);
+      setStageScale(document.fullscreenElement ? baseScale : baseScale * 0.96);
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  const handleToggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
+
+  // Right-click cancel handler (Crucial PvZ mechanic)
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setSelectedPlant(null);
+    setIsShovelActive(false);
+  };
+
+  // Plant selection handler
+  const handleSelectPlant = (type: PlantType) => {
+    setIsShovelActive(false);
+    setSelectedPlant((prev) => (prev === type ? null : type));
+  };
+
+  // Shovel toggle handler
+  const handleToggleShovel = () => {
+    setSelectedPlant(null);
+    setIsShovelActive((prev) => !prev);
+  };
+
+  // Sound mute toggle
+  const handleToggleMute = () => {
+    const nextMuted = !isMuted;
+    setIsMuted(nextMuted);
+    soundManager.setMuted(nextMuted);
+  };
+
+  // Pause toggle
+  const handleTogglePause = () => {
+    setIsPaused((prev) => !prev);
+    lastTimeRef.current = performance.now();
+  };
+
+  // =========================================================================
+  // EDUCATIONAL QUIZ SUN INTERACTION
+  // Player clicks/taps sun -> Generates quiz question with instant response!
+  // =========================================================================
+  const handleSunClick = (sunId: string, e?: React.SyntheticEvent) => {
+    if (gameState !== 'PLAYING' || isPaused) return;
+    if (e) {
+      e.stopPropagation();
+    }
+    if (activeQuiz || isOpeningQuizRef.current) return; // quiz already open or opening
+
+    const sunItem = sunsRef.current.find((s) => s.id === sunId);
+    if (!sunItem || sunItem.isCollected) return;
+
+    // Matahari quiz ditandai dengan isQuiz: true (berikon tanda tanya ?)
+    const shouldShowQuiz = !!sunItem.isQuiz && quizAnsweredRef.current < 25;
+
+    if (shouldShowQuiz) {
+      isOpeningQuizRef.current = true;
+      const question = getRandomQuestion(selectedSubject);
+      setActiveQuiz(question);
+      setActiveQuizSunId(sunId);
+    } else {
+      // Matahari biasa yang terserap: 25 poin
+      soundManager.playSunCollect();
+      setSun((prev) => prev + SUN_VALUE);
+      setStats((prev) => ({ ...prev, sunCollected: prev.sunCollected + SUN_VALUE }));
+
+      // Floating "+25" particle
+      particlesRef.current.push({
+        id: `sunText-${Date.now()}-${Math.random()}`,
+        type: 'sunText',
+        x: sunItem.x,
+        y: sunItem.y,
+        text: `+${SUN_VALUE}`,
+        lifetime: 0.8,
+        maxLifetime: 0.8
+      });
+
+      sunItem.isCollected = true;
+    }
+  };
+
+  // Answer callback from SunQuizModal
+  const handleQuizAnswer = (isCorrect: boolean) => {
+    const nextQuizAnswered = quizAnsweredRef.current + 1;
+    quizAnsweredRef.current = nextQuizAnswered;
+
+    setStats((prev) => ({
+      ...prev,
+      quizAnswered: nextQuizAnswered,
+      quizCorrect: prev.quizCorrect + (isCorrect ? 1 : 0)
+    }));
+
+    if (activeQuizSunId) {
+      const sunItem = sunsRef.current.find((s) => s.id === activeQuizSunId);
+      if (sunItem && !sunItem.isCollected) {
+        // One quiz sun can be answered only once, even when the answer is wrong.
+        sunItem.isCollected = true;
+        if (isCorrect) {
+          soundManager.playSunCollect();
+          // Jawab soal dan benar: 50 poin
+          setSun((prev) => prev + QUIZ_SUN_VALUE);
+          setStats((prev) => ({ ...prev, sunCollected: prev.sunCollected + QUIZ_SUN_VALUE }));
+
+          // Floating "+50" particle
+          particlesRef.current.push({
+            id: `sunText-${Date.now()}-${Math.random()}`,
+            type: 'sunText',
+            x: sunItem.x,
+            y: sunItem.y,
+            text: `+${QUIZ_SUN_VALUE}`,
+            lifetime: 0.8,
+            maxLifetime: 0.8
+          });
+        }
+      }
+    }
+
+    // Close quiz modal & resume game smoothly
+    setActiveQuiz(null);
+    setActiveQuizSunId(null);
+    isOpeningQuizRef.current = false;
+    lastTimeRef.current = performance.now();
+
+    // Aturan 2: Pemain menang ketika sudah menjawab 25 quiz yg muncul dan sudah melalui gelombang ke 5
+    const currentWaveDef = GAME_WAVES[currentWaveIdx];
+    const allSubWavesSpawned = currentWaveDef && currentWaveDef.subWaves.every((_, subIdx) =>
+      subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
+    );
+    const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0;
+
+    if (nextQuizAnswered >= 25 && hasClearedWave5) {
+      setGameState('VICTORY');
+      soundManager.playVictory();
+    }
+  };
+
+  // Cell Click: Place Plant or Dig with Shovel
+  const handleCellClick = (row: number, col: number) => {
+    if (gameState !== 'PLAYING' || isPaused || activeQuiz !== null) return;
+    const existingIndex = plantsRef.current.findIndex((p) => p.row === row && p.col === col);
+
+    // Shovel action: remove plant
+    if (isShovelActive) {
+      if (existingIndex !== -1) {
+        soundManager.playPlant();
+        plantsRef.current.splice(existingIndex, 1);
+        setPlants([...plantsRef.current]);
+        setIsShovelActive(false);
+      }
+      return;
+    }
+
+    // Placing a plant
+    if (selectedPlant && existingIndex === -1) {
+      const config = PLANTS[selectedPlant];
+      if (sun >= config.cost) {
+        setSun((prev) => prev - config.cost);
+        soundManager.playPlant();
+
+        // Start recharge cooldown for this plant type
+        setCooldowns((prev) => ({
+          ...prev,
+          [selectedPlant]: config.cooldown
+        }));
+
+        const newPlant: PlantInstance = {
+          id: `plant-${Date.now()}-${Math.random()}`,
+          type: selectedPlant,
+          row,
+          col,
+          hp: config.hp,
+          maxHp: config.hp,
+          lastShootTime: 0,
+          lastProduceTime: selectedPlant === 'sunflower' ? 5.0 : 0,
+          fuseTimer: selectedPlant === 'cherrybomb' ? CHERRY_BOMB_FUSE : undefined
+        };
+
+        plantsRef.current.push(newPlant);
+        setPlants([...plantsRef.current]);
+        setSelectedPlant(null); // Ghost cursor disappears upon placement!
+      }
+    }
+  };
+
+  // =========================================================================
+  // MAIN GAME ENGINE LOOP (Delta-Time, Frame-Rate Independent)
+  // Pauses automatically during quiz modal so students can solve without panic!
+  // =========================================================================
+  useEffect(() => {
+    if (gameState !== 'PLAYING' || isPaused || activeQuiz !== null) return;
+
+    let animId: number;
+
+    const gameLoop = (now: number) => {
+      // Calculate deltaTime in seconds, clamp to 0.1s
+      const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1);
+      lastTimeRef.current = now;
+
+      // Update Sound Cooldowns
+      Object.keys(soundCooldownRef.current).forEach((k) => {
+        if (soundCooldownRef.current[k] > 0) {
+          soundCooldownRef.current[k] -= dt;
+        }
+      });
+
+      // 1. UPDATE SEED CARD COOLDOWNS
+      setCooldowns((prev) => {
+        let changed = false;
+        const next = { ...prev };
+        (Object.keys(next) as PlantType[]).forEach((type) => {
+          if (next[type] > 0) {
+            next[type] = Math.max(0, next[type] - dt);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+
+      // 2. SPAWN SKY SUN
+      const currentWaveDef = GAME_WAVES[currentWaveIdx];
+      skySunTimerRef.current += dt;
+      const wave5Done = currentWaveIdx >= GAME_WAVES.length - 1 && zombiesRef.current.length === 0 && (currentWaveDef ? currentWaveDef.subWaves.every((_, subIdx) => subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)) : false);
+      const sunInterval = (wave5Done && quizAnsweredRef.current < 25) ? 2.5 : SKY_SUN_INTERVAL;
+
+      if (skySunTimerRef.current >= sunInterval) {
+        skySunTimerRef.current = 0;
+        const targetRow = Math.floor(Math.random() * GRID_ROWS);
+        const targetCol = Math.floor(Math.random() * (GRID_COLS - 1));
+        const spawnX = LAWN_LEFT_OFFSET + targetCol * CELL_WIDTH + CELL_WIDTH / 2;
+        const targetY = targetRow * CELL_HEIGHT + CELL_HEIGHT / 2;
+
+        // Semua matahari alami yang jatuh dari langit menjadi matahari kuis.
+        // Setelah target 25 soal tercapai, matahari berikutnya kembali menjadi
+        // matahari biasa agar target kuis tidak terus bertambah.
+        const isQuiz = quizAnsweredRef.current < 25;
+
+        sunsRef.current.push({
+          id: `skySun-${Date.now()}-${Math.random()}`,
+          x: spawnX,
+          y: -30,
+          targetY,
+          value: isQuiz ? QUIZ_SUN_VALUE : SUN_VALUE,
+          lifetime: SUN_LIFETIME,
+          isCollected: false,
+          collectAnimProgress: 0,
+          source: 'sky',
+          isQuiz
+        });
+      }
+
+      // 3. UPDATE SUNS (FLOAT, FLY, DESPAWN)
+      sunsRef.current = sunsRef.current
+        .map((s) => {
+          if (s.isCollected) {
+            const nextProgress = s.collectAnimProgress + dt * 3.5;
+            return {
+              ...s,
+              collectAnimProgress: nextProgress,
+              y: s.y - dt * 280
+            };
+          }
+
+          let newY = s.y;
+          if (s.y < s.targetY) {
+            newY = Math.min(s.targetY, s.y + dt * 90);
+          }
+
+          return {
+            ...s,
+            y: newY,
+            lifetime: s.lifetime - dt
+          };
+        })
+        .filter((s) => (s.isCollected ? s.collectAnimProgress < 1.0 : s.lifetime > 0));
+
+      // 4. WAVE PROGRESSION & SPAWNS
+      if (currentWaveDef) {
+        setWaveTimer((prevTime) => {
+          const nextTime = prevTime + dt;
+
+          // Check subwaves to spawn
+          currentWaveDef.subWaves.forEach((subWave, subIdx) => {
+            const key = `${currentWaveIdx}-${subIdx}`;
+            if (nextTime >= subWave.timeOffset && !subWaveSpawnedRef.current.has(key)) {
+              subWaveSpawnedRef.current.add(key);
+
+              // Spawn the zombies
+              subWave.zombies.forEach((zDef, zIdx) => {
+                const assignedRow = zDef.row !== undefined ? zDef.row : Math.floor(Math.random() * GRID_ROWS);
+                const isCone = zDef.type === 'conehead';
+                const isBucket = zDef.type === 'buckethead';
+                const isFlag = zDef.type === 'flag';
+
+                const hp = isBucket ? 900 : isCone ? 480 : 140; // 50% lebih mudah
+                const speed = isFlag ? 19 : ZOMBIE_SPEED_NORMAL;
+
+                zombiesRef.current.push({
+                  id: `zombie-${Date.now()}-${zIdx}-${Math.random()}`,
+                  type: zDef.type,
+                  row: assignedRow,
+                  x: ZOMBIE_SPAWN_X + zIdx * 35,
+                  hp,
+                  maxHp: hp,
+                  coneHp: isCone ? 340 : undefined,
+                  bucketHp: isBucket ? 760 : undefined,
+                  speed,
+                  isEating: false,
+                  eatingTargetId: null,
+                  slowTimer: 0,
+                  animTime: Math.random() * 5
+                });
+              });
+
+              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+                soundManager.playZombieGroan();
+                soundCooldownRef.current['groan'] = 8.0;
+              }
+            }
+          });
+
+          // Check wave banner alert
+          if (currentWaveDef.isHugeWave && nextTime >= 1.0 && nextTime <= 4.0) {
+            setWaveAlert(currentWaveDef.isFinalWave ? 'FINAL WAVE!' : 'GELOMBANG BESAR MENDEKAT!');
+            if (!soundCooldownRef.current['alarm'] || soundCooldownRef.current['alarm'] <= 0) {
+              soundManager.playHugeWave();
+              soundCooldownRef.current['alarm'] = 5.0;
+            }
+          } else if (nextTime > 4.5 && waveAlert) {
+            setWaveAlert(null);
+          }
+
+          // Advance wave if all subwaves spawned AND all zombies eliminated
+          const allSubWavesSpawned = currentWaveDef.subWaves.every((_, subIdx) =>
+            subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
+          );
+
+          if (allSubWavesSpawned && zombiesRef.current.length === 0) {
+            if (currentWaveIdx < GAME_WAVES.length - 1) {
+              setCurrentWaveIdx((prev) => prev + 1);
+            } else {
+              // Sudah melalui gelombang ke-5!
+              // Aturan 2: Pemain menang ketika sudah menjawab 25 quiz yg muncul dan sudah melalui gelombang ke 5
+              if (quizAnsweredRef.current >= 25) {
+                setGameState('VICTORY');
+                soundManager.playVictory();
+              } else {
+                setWaveAlert(`JAWAB ${25 - quizAnsweredRef.current} KUIS LAGI UNTUK MENANG!`);
+              }
+            }
+          }
+
+          return nextTime;
+        });
+      }
+
+      // 5. UPDATE PLANTS (SHOOTING, SUNFLOWER, CHERRY BOMB FUSE)
+      const remainingPlants: PlantInstance[] = [];
+
+      plantsRef.current.forEach((plant) => {
+        // Cherry Bomb: Fuse countdown & 3x3 blast
+        if (plant.type === 'cherrybomb' && plant.fuseTimer !== undefined) {
+          const nextFuse = plant.fuseTimer - dt;
+          if (nextFuse <= 0) {
+            // EXPLODE!
+            soundManager.playExplosion();
+            const plantX = LAWN_LEFT_OFFSET + plant.col * CELL_WIDTH + CELL_WIDTH / 2;
+            const plantY = plant.row * CELL_HEIGHT + CELL_HEIGHT / 2;
+
+            particlesRef.current.push({
+              id: `boom-${Date.now()}-${Math.random()}`,
+              type: 'explosion',
+              x: plantX,
+              y: plantY,
+              lifetime: 0.9,
+              maxLifetime: 0.9
+            });
+
+            // Instant kill in 3x3 radius
+            zombiesRef.current.forEach((z) => {
+              const rowDiff = Math.abs(z.row - plant.row);
+              const colOfZombie = (z.x - LAWN_LEFT_OFFSET) / CELL_WIDTH;
+              const colDiff = Math.abs(colOfZombie - plant.col);
+
+              if (rowDiff <= 1 && colDiff <= 1.4) {
+                z.hp = 0;
+                setStats((prevStats) => ({
+                  ...prevStats,
+                  zombiesDefeated: prevStats.zombiesDefeated + 1
+                }));
+              }
+            });
+
+            return;
+          } else {
+            remainingPlants.push({ ...plant, fuseTimer: nextFuse });
+            return;
+          }
+        }
+
+        // Sunflower: Periodically produce sun (+25 poin)
+        if (plant.type === 'sunflower') {
+          const nextProduce = plant.lastProduceTime + dt;
+          if (nextProduce >= SUNFLOWER_PRODUCE_INTERVAL) {
+            const plantX = LAWN_LEFT_OFFSET + plant.col * CELL_WIDTH + CELL_WIDTH / 2;
+            const plantY = plant.row * CELL_HEIGHT + CELL_HEIGHT / 2;
+
+            sunsRef.current.push({
+              id: `sunflowerSun-${Date.now()}-${Math.random()}`,
+              x: plantX + (Math.random() * 20 - 10),
+              y: plantY - 10,
+              targetY: plantY + 22,
+              value: SUN_VALUE,
+              lifetime: SUN_LIFETIME,
+              isCollected: false,
+              collectAnimProgress: 0,
+              source: 'sunflower',
+              isQuiz: false
+            });
+
+            soundManager.playSunProduce();
+
+            remainingPlants.push({ ...plant, lastProduceTime: 0 });
+            return;
+          }
+
+          remainingPlants.push({ ...plant, lastProduceTime: nextProduce });
+          return;
+        }
+
+        // Peashooter, Repeater (Lv. 2) & Snow Pea: Shoot if zombie is in front in that row
+        if (plant.type === 'peashooter' || plant.type === 'repeater' || plant.type === 'snowpea') {
+          const isIce = plant.type === 'snowpea';
+          const isRepeater = plant.type === 'repeater';
+          const plantX = LAWN_LEFT_OFFSET + plant.col * CELL_WIDTH;
+          const nextShoot = plant.lastShootTime + dt;
+
+          const hasZombieInFront = zombiesRef.current.some(
+            (z) => z.row === plant.row && z.x > plantX && z.x < LAWN_WIDTH + 60
+          );
+
+          if (hasZombieInFront && nextShoot >= PEASHOOTER_SHOOT_INTERVAL) {
+            soundManager.playShoot(isIce);
+            // First pea
+            projectilesRef.current.push({
+              id: `pea-${Date.now()}-${Math.random()}`,
+              type: isIce ? 'snowpea' : 'pea',
+              row: plant.row,
+              x: plantX + 68,
+              damage: PEA_DAMAGE,
+              speed: PEA_SPEED
+            });
+
+            // Repeater (Lv. 2): Menembak 2x (peluru kedua meluncur beriringan)
+            if (isRepeater) {
+              projectilesRef.current.push({
+                id: `pea-rep-${Date.now()}-${Math.random()}`,
+                type: 'pea',
+                row: plant.row,
+                x: plantX + 32,
+                damage: PEA_DAMAGE,
+                speed: PEA_SPEED
+              });
+            }
+
+            remainingPlants.push({ ...plant, lastShootTime: 0 });
+            return;
+          }
+
+          remainingPlants.push({ ...plant, lastShootTime: nextShoot });
+          return;
+        }
+
+        // Other plants (Wall-nut)
+        remainingPlants.push(plant);
+      });
+
+      plantsRef.current = remainingPlants;
+
+      // 6. UPDATE PROJECTILES & COLLISION DETECTION WITH ZOMBIES
+      const remainingProjectiles: ProjectileInstance[] = [];
+
+      projectilesRef.current.forEach((proj) => {
+        const nextX = proj.x + proj.speed * dt;
+        let hasHit = false;
+
+        // Check collision with zombies
+        for (const zombie of zombiesRef.current) {
+          if (zombie.hp > 0 && zombie.row === proj.row && Math.abs(zombie.x - nextX) < 24) {
+            hasHit = true;
+            const isIce = proj.type === 'snowpea';
+            soundManager.playHit(isIce);
+
+            particlesRef.current.push({
+              id: `hit-${Date.now()}-${Math.random()}`,
+              type: isIce ? 'frost' : 'splat',
+              x: nextX,
+              y: proj.row * CELL_HEIGHT + CELL_HEIGHT * 0.35,
+              lifetime: 0.25,
+              maxLifetime: 0.25
+            });
+
+            let remainingDmg = proj.damage;
+            if (zombie.bucketHp !== undefined && zombie.bucketHp > 0) {
+              zombie.bucketHp = Math.max(0, zombie.bucketHp - remainingDmg);
+              remainingDmg = 0;
+            } else if (zombie.coneHp !== undefined && zombie.coneHp > 0) {
+              zombie.coneHp = Math.max(0, zombie.coneHp - remainingDmg);
+              remainingDmg = 0;
+            }
+
+            zombie.hp -= remainingDmg;
+            if (isIce) {
+              zombie.slowTimer = SNOW_PEA_SLOW_DURATION;
+            }
+
+            if (zombie.hp <= 0) {
+              setStats((prevStats) => ({
+                ...prevStats,
+                zombiesDefeated: prevStats.zombiesDefeated + 1
+              }));
+            }
+            break;
+          }
+        }
+
+        if (!hasHit && nextX < LAWN_WIDTH + 80) {
+          remainingProjectiles.push({ ...proj, x: nextX });
+        }
+      });
+
+      projectilesRef.current = remainingProjectiles;
+
+      // 7. UPDATE ZOMBIES (MOVEMENT, BITING PLANTS, BREACH CHECKS)
+      let isGameOver = false;
+
+      zombiesRef.current = zombiesRef.current
+        .filter((z) => z.hp > 0)
+        .map((zombie) => {
+          const nextSlowTimer = Math.max(0, zombie.slowTimer - dt);
+          const isSlowed = nextSlowTimer > 0;
+          const currentSpeed = isSlowed ? zombie.speed * 0.5 : zombie.speed;
+
+          // Check if touching any plant in front of it
+          const plantToEat = plantsRef.current.find((p) => {
+            if (p.row !== zombie.row) return false;
+            const plantX = LAWN_LEFT_OFFSET + p.col * CELL_WIDTH + CELL_WIDTH / 2;
+            return Math.abs(zombie.x - plantX) < 26;
+          });
+
+          if (plantToEat) {
+            // Eating the plant
+            plantToEat.hp -= ZOMBIE_DAMAGE_PER_SEC * dt;
+
+            if (!soundCooldownRef.current[`chomp-${zombie.id}`] || soundCooldownRef.current[`chomp-${zombie.id}`] <= 0) {
+              soundManager.playChomp();
+              soundCooldownRef.current[`chomp-${zombie.id}`] = 0.55;
+            }
+
+            // Remove plant if dead
+            if (plantToEat.hp <= 0) {
+              plantsRef.current = plantsRef.current.filter((p) => p.id !== plantToEat.id);
+            }
+
+            return {
+              ...zombie,
+              isEating: true,
+              eatingTargetId: plantToEat.id,
+              slowTimer: nextSlowTimer,
+              animTime: zombie.animTime + dt
+            };
+          }
+
+          // Shambling forward
+          const nextX = zombie.x - currentSpeed * dt;
+
+          // Check Lawn Mower trigger threshold (x <= 85)
+          const mower = mowersRef.current.find((m) => m.row === zombie.row);
+          if (mower && mower.state === 'idle' && nextX <= LAWN_LEFT_OFFSET) {
+            soundManager.playLawnMower();
+            mower.state = 'triggered';
+          }
+
+          // Breach without lawn mower -> Game Over!
+          if (nextX <= 15) {
+            isGameOver = true;
+          }
+
+          return {
+            ...zombie,
+            x: nextX,
+            isEating: false,
+            eatingTargetId: null,
+            slowTimer: nextSlowTimer,
+            animTime: zombie.animTime + dt
+          };
+        });
+
+      if (isGameOver) {
+        setGameState('GAMEOVER');
+        soundManager.playGameOver();
+      }
+
+      // 8. UPDATE LAWN MOWERS (RUSH & KILL ZOMBIES)
+      let savedMowersCount = 0;
+      mowersRef.current = mowersRef.current.map((mower) => {
+        if (mower.state === 'idle') {
+          savedMowersCount++;
+          return mower;
+        }
+        if (mower.state === 'triggered') {
+          const nextX = mower.x + mower.speed * dt;
+
+          // Obliterate any zombie in its path
+          zombiesRef.current = zombiesRef.current.filter((z) => {
+            if (z.row === mower.row && z.x <= nextX + 45) {
+              setStats((prevStats) => ({
+                ...prevStats,
+                zombiesDefeated: prevStats.zombiesDefeated + 1
+              }));
+              return false;
+            }
+            return true;
+          });
+
+          if (nextX > LAWN_WIDTH + 100) {
+            return { ...mower, x: nextX, state: 'offscreen' as const };
+          }
+          return { ...mower, x: nextX };
+        }
+        return mower;
+      });
+
+      setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+
+      // 9. UPDATE PARTICLES
+      particlesRef.current = particlesRef.current
+        .map((pt) => ({ ...pt, lifetime: pt.lifetime - dt }))
+        .filter((pt) => pt.lifetime > 0);
+
+      // SYNC ALL REFS TO REACT STATE FOR UI RENDERING
+      setPlants([...plantsRef.current]);
+      setZombies([...zombiesRef.current]);
+      setProjectiles([...projectilesRef.current]);
+      setSuns([...sunsRef.current]);
+      setLawnMowers([...mowersRef.current]);
+      setParticles([...particlesRef.current]);
+
+      // Request next frame
+      animId = requestAnimationFrame(gameLoop);
+    };
+
+    animId = requestAnimationFrame(gameLoop);
+
+    return () => {
+      if (animId) cancelAnimationFrame(animId);
+    };
+  }, [gameState, isPaused, currentWaveIdx, activeQuiz]);
+
+  // Calculate current wave progress (0..1)
+  const totalWaves = GAME_WAVES.length;
+  const currentWaveDef = GAME_WAVES[currentWaveIdx];
+  const maxWaveTime = currentWaveDef ? currentWaveDef.subWaves[currentWaveDef.subWaves.length - 1].timeOffset + 15 : 45;
+  const waveProgress = Math.min(1.0, waveTimer / maxWaveTime);
+
+  return (
+    <div
+      className="w-screen h-screen overflow-hidden bg-slate-950 text-slate-100 flex items-center justify-center relative select-none"
+      onContextMenu={handleContextMenu}
+    >
+      {/* Background Ambience: Extends edge-to-edge so there is NEVER an empty screen */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#0c2438] via-[#091a13] to-[#040d09] z-0 pointer-events-none">
+        <div className="absolute top-0 inset-x-0 h-36 bg-gradient-to-b from-sky-900/30 to-transparent" />
+        <div className="absolute bottom-0 inset-x-0 h-44 bg-gradient-to-t from-emerald-950/60 to-transparent" />
+      </div>
+
+      {/* 16:9 STAGE CONTAINER (1280x720) Styled like classic PvZ garden window */}
+      <div
+        className="relative z-10 flex flex-col justify-between overflow-hidden shadow-[0_25px_60px_rgba(0,0,0,0.85),0_0_0_3px_#27170a] rounded-2xl border-4 border-[#4a2e16] bg-gradient-to-b from-[#182316] via-[#101b10] to-[#0a120a] p-1.5 shrink-0"
+        style={{
+          width: STAGE_WIDTH,
+          height: STAGE_HEIGHT,
+          transform: `scale(${stageScale})`,
+          transformOrigin: 'center center'
+        }}
+      >
+        {/* TOP: HUD Inventory */}
+        <HUD
+          sun={sun}
+          selectedPlant={selectedPlant}
+          isShovelActive={isShovelActive}
+          onSelectPlant={handleSelectPlant}
+          onToggleShovel={handleToggleShovel}
+          cooldowns={cooldowns}
+          currentWave={currentWaveIdx + 1}
+          totalWaves={totalWaves}
+          waveProgress={waveProgress}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
+          isPaused={isPaused}
+          onTogglePause={handleTogglePause}
+          onRestart={handleRestart}
+          selectedSubject={selectedSubject}
+          quizStats={{
+            answered: stats.quizAnswered,
+            correct: stats.quizCorrect
+          }}
+        />
+
+        {/* CENTER: Main Lawn Grid */}
+        <main className="w-full flex items-center justify-center my-0.5 overflow-hidden">
+          <LawnGrid
+            plants={plants}
+            zombies={zombies}
+            projectiles={projectiles}
+            suns={suns}
+            lawnMowers={lawnMowers}
+            particles={particles}
+            selectedPlant={selectedPlant}
+            isShovelActive={isShovelActive}
+            hoveredCell={hoveredCell}
+            mousePos={mousePos}
+            onCellClick={handleCellClick}
+            onCellHover={(r, c) => {
+              if (r === null || c === null) {
+                setHoveredCell(null);
+              } else {
+                setHoveredCell({ row: r, col: c });
+              }
+            }}
+            onSunClick={handleSunClick}
+            onContextMenu={handleContextMenu}
+          />
+        </main>
+
+        {/* BOTTOM: Authentic PvZ Wooden Footer Bar */}
+        <footer className="w-full h-11 px-4 flex items-center justify-between rounded-xl border-t-2 border-[#804e25] border-b-2 border-[#1c1006] bg-gradient-to-r from-[#3e2311] via-[#4d2c14] to-[#3e2311] shadow-[inset_0_2px_4px_rgba(255,255,255,0.1),0_4px_10px_rgba(0,0,0,0.5)] text-xs relative select-none">
+          {/* Decorative Corner Rivets / Brass Bolts */}
+          <div className="absolute left-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-amber-200 via-amber-500 to-amber-900 border border-amber-950/80 shadow-inner flex items-center justify-center">
+            <div className="w-1.5 h-0.5 bg-amber-950/70" />
+          </div>
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-gradient-to-br from-amber-200 via-amber-500 to-amber-900 border border-amber-950/80 shadow-inner flex items-center justify-center">
+            <div className="w-1.5 h-0.5 bg-amber-950/70" />
+          </div>
+
+          {/* Left: PvZ Wood Plaque for Current Subject */}
+          <div className="flex items-center gap-2 pl-3">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#271609]/90 border border-[#6b3e1a] shadow-inner">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-[11px] font-black text-amber-200 uppercase tracking-wide font-sans">
+                {SUBJECTS.find((s) => s.id === selectedSubject)?.name}
+              </span>
+              <span className="text-[10px] text-amber-400 font-bold hidden sm:inline">
+                ({SUBJECTS.find((s) => s.id === selectedSubject)?.englishTitle})
+              </span>
+            </div>
+            <span className="text-[11px] text-amber-100/90 font-medium hidden md:inline">
+              • Ambil matahari dari langit untuk amunisi!
+            </span>
+          </div>
+
+          {/* Center: Wave Progress Plaque */}
+          <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-[#271609]/90 border border-[#7a4820] shadow-md">
+            <span className="text-[11px] font-black tracking-wider text-rose-300 uppercase font-mono flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 animate-ping" />
+              GELOMBANG {currentWaveIdx + 1} / {totalWaves}
+            </span>
+            <div className="w-20 sm:w-28 h-2 rounded-full bg-stone-900/90 border border-stone-700/80 overflow-hidden relative">
+              <div
+                className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 transition-all duration-300"
+                style={{ width: `${Math.round(waveProgress * 100)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Right: Authentic PvZ Arcade Control Tips */}
+          <div className="flex items-center gap-2 text-[11px] text-amber-200/90 pr-3 font-semibold">
+            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-[#6b3e1a] text-amber-300 font-bold">
+              Klik Kiri
+            </span>
+            <span>Tanam / Ambil Sun</span>
+            <span className="text-amber-500/60 hidden sm:inline">•</span>
+            <span className="px-1.5 py-0.5 rounded bg-black/40 border border-[#6b3e1a] text-amber-300 font-bold hidden sm:inline">
+              Klik Kanan / Esc
+            </span>
+            <span className="hidden sm:inline">Batal</span>
+          </div>
+        </footer>
+      </div>
+
+      {/* EDUCATIONAL SUN QUIZ MODAL */}
+      {activeQuiz && (
+        <SunQuizModal
+          question={activeQuiz}
+          onAnswer={handleQuizAnswer}
+        />
+      )}
+
+      {/* MODALS & OVERLAYS */}
+      <Modals
+        gameState={gameState}
+        onStartGame={handleStartGame}
+        onRestartGame={handleRestart}
+        waveAlert={waveAlert}
+        selectedSubject={selectedSubject}
+        onSelectSubject={(subj) => {
+          setSelectedSubject(subj);
+          resetQuizDeck(subj);
+        }}
+        stats={stats}
+      />
+
+      {/* ROOT-LEVEL GHOST CURSOR (Pixel-perfect tracking directly on mouse cursor with zero scale offset) */}
+      {mousePos && (selectedPlant || isShovelActive) && (
+        <div
+          className="fixed pointer-events-none z-[9999] -translate-x-1/2 -translate-y-1/2 select-none"
+          style={{
+            left: mousePos.x,
+            top: mousePos.y,
+            width: Math.round(72 * stageScale),
+            height: Math.round(72 * stageScale),
+            opacity: 0.65
+          }}
+        >
+          {selectedPlant && <PlantRenderer type={selectedPlant} />}
+          {isShovelActive && <ShovelSVG />}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Plants vs. Zombies Web (Vanilla JS Standalone)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+    body {
+      background-color: #020617;
+      color: #f8fafc;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 8px;
+      overflow-x: hidden;
+    }
+
+    #game-wrapper {
+      position: relative;
+      width: 970px;
+      max-width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* HUD */
+    #hud {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 6px 12px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      z-index: 40;
+    }
+
+    .hud-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .sun-box {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: linear-gradient(180deg, #451a03, #78350f);
+      border: 2px solid #f59e0b;
+      padding: 4px 10px;
+      border-radius: 12px;
+    }
+
+    .sun-counter {
+      font-size: 20px;
+      font-weight: 900;
+      color: #fef08a;
+      font-family: monospace;
+    }
+
+    .seed-bank {
+      display: flex;
+      gap: 6px;
+      background: rgba(2, 6, 23, 0.7);
+      padding: 4px;
+      border-radius: 12px;
+      border: 1px solid #1e293b;
+    }
+
+    .seed-card {
+      width: 58px;
+      height: 82px;
+      background: #1e293b;
+      border: 2px solid #475569;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.15s ease;
+    }
+
+    .seed-card:hover:not(.disabled) {
+      border-color: #4ade80;
+      transform: translateY(-2px);
+    }
+
+    .seed-card.selected {
+      border-color: #facc15;
+      box-shadow: 0 0 10px #facc15;
+      transform: scale(1.05);
+    }
+
+    .seed-card.disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .seed-card .name {
+      font-size: 8px;
+      font-weight: bold;
+      color: #e2e8f0;
+      text-transform: uppercase;
+      text-align: center;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      width: 100%;
+    }
+
+    .seed-card .thumb {
+      width: 38px;
+      height: 38px;
+    }
+
+    .seed-card .cost-badge {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      background: rgba(2, 6, 23, 0.9);
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-size: 10px;
+      font-weight: 900;
+      font-family: monospace;
+      color: #fde047;
+    }
+
+    .cooldown-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 0%;
+      background: rgba(2, 6, 23, 0.75);
+      pointer-events: none;
+    }
+
+    .shovel-btn {
+      width: 52px;
+      height: 82px;
+      background: #1e293b;
+      border: 2px solid #475569;
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .shovel-btn.active {
+      border-color: #f43f5e;
+      box-shadow: 0 0 10px #f43f5e;
+      transform: scale(1.05);
+    }
+
+    .hud-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .wave-box {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      background: rgba(2, 6, 23, 0.7);
+      padding: 6px 10px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      width: 140px;
+    }
+
+    .wave-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #334155;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .wave-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #10b981, #f59e0b, #ef4444);
+      transition: width 0.3s;
+    }
+
+    .btn-action {
+      background: #334155;
+      border: 1px solid #475569;
+      color: #f8fafc;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 11px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .btn-action:hover { background: #475569; }
+
+    /* Lawn Area */
+    #lawn {
+      position: relative;
+      width: 970px;
+      height: 480px;
+      background: #064e3b;
+      border: 4px solid #022c22;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 35px rgba(0,0,0,0.6);
+    }
+
+    .mower-strip {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 80px;
+      height: 100%;
+      background: #292524;
+      border-right: 4px solid #1c1917;
+      z-index: 1;
+    }
+
+    .grid {
+      position: absolute;
+      left: 80px;
+      top: 0;
+      width: 810px;
+      height: 480px;
+      display: grid;
+      grid-template-columns: repeat(9, 90px);
+      grid-template-rows: repeat(5, 96px);
+      z-index: 2;
+    }
+
+    .cell {
+      border: 1px solid rgba(16, 185, 129, 0.15);
+      position: relative;
+      cursor: pointer;
+    }
+
+    .cell.even { background-color: #15803d; }
+    .cell.odd { background-color: #166534; }
+    .cell.highlight-valid { background-color: rgba(74, 222, 128, 0.35) !important; outline: 3px solid #4ade80; }
+    .cell.highlight-invalid { background-color: rgba(244, 63, 94, 0.35) !important; outline: 3px solid #f43f5e; }
+
+    .zombie-strip {
+      position: absolute;
+      right: 0;
+      top: 0;
+      width: 80px;
+      height: 100%;
+      background: #1c1917;
+      border-left: 4px solid #0c0a09;
+      z-index: 1;
+    }
+
+    /* Entities Layer */
+    #entities {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+
+    .plant-el { position: absolute; width: 84px; height: 86px; pointer-events: none; }
+    .zombie-el { position: absolute; width: 95px; height: 115px; pointer-events: none; }
+    .pea-el { position: absolute; width: 26px; height: 26px; pointer-events: none; }
+    .mower-el { position: absolute; width: 76px; height: 60px; pointer-events: none; }
+    .sun-el { position: absolute; width: 62px; height: 62px; cursor: pointer; pointer-events: auto; z-index: 30; }
+
+    #ghost-cursor {
+      position: fixed;
+      width: 72px;
+      height: 72px;
+      pointer-events: none;
+      opacity: 0.55;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+      display: none;
+    }
+
+    /* Banners & Modals */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.88);
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      padding: 16px;
+    }
+
+    .modal-card {
+      background: #0f172a;
+      border: 2px solid #10b981;
+      border-radius: 24px;
+      padding: 24px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.8);
+    }
+
+    .modal-card h1 { font-size: 28px; color: #34d399; margin-bottom: 8px; font-weight: 900; }
+    .modal-card p { font-size: 14px; color: #cbd5e1; margin-bottom: 16px; line-height: 1.5; }
+    .modal-btn {
+      background: #10b981;
+      color: #020617;
+      border: none;
+      padding: 12px 32px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 900;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .modal-btn:hover { background: #34d399; transform: scale(1.03); }
+
+    #wave-alert {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 100%;
+      transform: translateY(-50%);
+      background: rgba(225, 29, 72, 0.9);
+      border-top: 4px solid #f43f5e;
+      border-bottom: 4px solid #f43f5e;
+      padding: 16px;
+      text-align: center;
+      font-size: 32px;
+      font-weight: 900;
+      color: #fff;
+      font-family: monospace;
+      letter-spacing: 4px;
+      z-index: 100;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrapper">
+    <!-- Top HUD -->
+    <div id="hud">
+      <div class="hud-left">
+        <div class="sun-box">
+          <svg width="24" height="24" viewBox="0 0 100 100"><circle cx="50" cy="50" r="45" fill="#facc15"/><circle cx="50" cy="50" r="25" fill="#fef08a"/></svg>
+          <span class="sun-counter" id="sun-count">200</span>
+        </div>
+
+        <div class="seed-bank" id="seed-bank">
+          <!-- Seed Cards generated by JS -->
+        </div>
+
+        <div class="shovel-btn" id="shovel-btn" title="Sekop: Cabut Tanaman">
+          <svg width="32" height="32" viewBox="0 0 60 60"><line x1="16" y1="16" x2="36" y2="36" stroke="#b45309" stroke-width="5" stroke-linecap="round"/><path d="M 36 36 L 46 26 C 52 32, 54 44, 48 50 C 42 56, 30 54, 24 48 L 34 38 Z" fill="#94a3b8" stroke="#1e293b" stroke-width="2"/></svg>
+          <span style="font-size: 8px; font-weight: bold; margin-top: 2px;">SEKOP</span>
+        </div>
+      </div>
+
+      <div class="hud-right">
+        <div class="wave-box">
+          <div style="display: flex; justify-content: space-between; font-size: 10px; font-weight: bold;">
+            <span id="wave-title">Gelombang 1/5</span>
+            <span id="wave-pct">0%</span>
+          </div>
+          <div class="wave-bar-bg">
+            <div class="wave-bar-fill" id="wave-fill"></div>
+          </div>
+        </div>
+
+        <button class="btn-action" id="audio-toggle">Audio: ON</button>
+        <button class="btn-action" id="restart-btn">Restart</button>
+        <button class="btn-action" id="fullscreen-btn" title="Layar Penuh (Fullscreen)">Layar Penuh</button>
+      </div>
+    </div>
+
+    <!-- Lawn Grid -->
+    <div id="lawn" oncontextmenu="return false;">
+      <div class="mower-strip"></div>
+      <div class="grid" id="grid"></div>
+      <div class="zombie-strip"></div>
+      <div id="entities"></div>
+      <div id="wave-alert">GELOMBANG BESAR MENDEKAT!</div>
+    </div>
+  </div>
+
+  <div id="ghost-cursor"></div>
+
+  <!-- Start Modal -->
+  <div class="modal-overlay" id="start-modal">
+    <div class="modal-card">
+      <h1>PLANTS VS. ZOMBIES</h1>
+      <p>Pertahankan rumah dari zombie dengan menanam peashooter, sunflower, wallnut, cherry bomb, dan snow pea! Kumpulkan matahari (mulai 200). Mesin pemotong rumput siap menjaga garis pertahanan terakhir!</p>
+      <button class="modal-btn" id="start-btn">MULAI BERMAIN</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div class="modal-overlay" id="gameover-modal" style="display: none;">
+    <div class="modal-card" style="border-color: #ef4444;">
+      <h1 style="color: #ef4444;">THE ZOMBIES ATE YOUR BRAINS!</h1>
+      <p>Zombie berhasil menembus kebun dan memakan otak Anda!</p>
+      <button class="modal-btn" style="background: #ef4444; color: white;" onclick="location.reload()">COBA LAGI</button>
+    </div>
+  </div>
+
+  <!-- Victory Modal -->
+  <div class="modal-overlay" id="victory-modal" style="display: none;">
+    <div class="modal-card" style="border-color: #f59e0b;">
+      <h1 style="color: #f59e0b;">KEMENANGAN!</h1>
+      <p>Anda berhasil mengalahkan semua gelombang zombie dan menyelamatkan kebun!</p>
+      <button class="modal-btn" style="background: #f59e0b; color: black;" onclick="location.reload()">MAIN LAGI</button>
+    </div>
+  </div>
+
+  <script>
+    // Pure Vanilla JS Game Engine - Delta Time, Custom SVGs, Web Audio API
+    const ROWS = 5, COLS = 9, CELL_W = 90, CELL_H = 96, LAWN_OFFSET = 80, LAWN_W = 890;
+    let sun = 200, selectedPlant = null, isShovel = false, isMuted = false, isPlaying = false;
+    let plants = [], zombies = [], projectiles = [], suns = [], mowers = [];
+    let currentWaveIdx = 0, waveTimer = 0, lastTime = performance.now();
+    let cooldowns = { peashooter: 0, sunflower: 0, wallnut: 0, cherrybomb: 0, snowpea: 0 };
+    let spawnedKeys = new Set();
+
+    const PLANT_DATA = {
+      peashooter: { name: 'Peashooter', cost: 100, hp: 300, cd: 6.0 },
+      sunflower: { name: 'Sunflower', cost: 50, hp: 300, cd: 5.0 },
+      wallnut: { name: 'Wall-nut', cost: 50, hp: 4000, cd: 16.0 },
+      cherrybomb: { name: 'Cherry Bomb', cost: 150, hp: 300, cd: 22.0 },
+      snowpea: { name: 'Snow Pea', cost: 175, hp: 300, cd: 7.5 }
+    };
+
+    // SVGs
+    const SVG_MAP = {
+      peashooter: '<svg viewBox="0 0 100 100"><circle cx="45" cy="90" rx="26" ry="6" fill="#0f172a" opacity="0.3"/><path d="M 45 88 C 42 70, 50 56, 45 42" stroke="#15803d" stroke-width="10" stroke-linecap="round"/><path d="M 52 28 L 82 23 C 86 23, 88 27, 88 36 C 88 45, 84 48, 80 48 L 50 44 Z" fill="#22c55e" stroke="#14532d" stroke-width="2"/><circle cx="42" cy="36" r="23" fill="#4ade80" stroke="#14532d" stroke-width="3"/><ellipse cx="54" cy="27" rx="5" ry="8" fill="#fff"/><circle cx="56" cy="27" r="3.5" fill="#000"/></svg>',
+      sunflower: '<svg viewBox="0 0 100 100"><circle cx="48" cy="90" rx="24" ry="6" fill="#0f172a" opacity="0.3"/><path d="M 48 88 C 45 72, 50 60, 48 46" stroke="#15803d" stroke-width="9" stroke-linecap="round"/><circle cx="48" cy="42" r="32" fill="#facc15" stroke="#ca8a04" stroke-width="2"/><circle cx="48" cy="42" r="19" fill="#78350f"/><circle cx="43" cy="38" r="3" fill="#fff"/><circle cx="53" cy="38" r="3" fill="#fff"/><path d="M 43 46 Q 48 52 53 46" stroke="#fff" stroke-width="2" fill="none"/></svg>',
+      wallnut: '<svg viewBox="0 0 100 100"><circle cx="50" cy="90" rx="24" ry="6" fill="#0f172a" opacity="0.4"/><path d="M 50 14 C 74 14, 82 32, 82 56 C 82 78, 72 90, 50 90 C 28 90, 18 78, 18 56 C 18 32, 26 14, 50 14 Z" fill="#92400e" stroke="#451a03" stroke-width="3"/><ellipse cx="40" cy="38" rx="8" ry="11" fill="#fff"/><circle cx="42" cy="38" r="4.5" fill="#000"/><ellipse cx="60" cy="38" rx="8" ry="11" fill="#fff"/><circle cx="62" cy="38" r="4.5" fill="#000"/><path d="M 44 58 Q 50 63 56 58" stroke="#451a03" stroke-width="3" fill="none"/></svg>',
+      cherrybomb: '<svg viewBox="0 0 100 100"><line x1="36" y1="56" x2="52" y2="16" stroke="#15803d" stroke-width="4"/><line x1="64" y1="60" x2="52" y2="16" stroke="#15803d" stroke-width="4"/><circle cx="34" cy="62" r="20" fill="#dc2626" stroke="#450a0a" stroke-width="2"/><circle cx="66" cy="66" r="20" fill="#dc2626" stroke="#450a0a" stroke-width="2"/><circle cx="56" cy="10" r="4" fill="#facc15"/></svg>',
+      snowpea: '<svg viewBox="0 0 100 100"><circle cx="45" cy="90" rx="26" ry="6" fill="#0f172a" opacity="0.3"/><polygon points="26,24 8,14 20,28" fill="#bae6fd" stroke="#0284c7"/><polygon points="22,34 4,32 20,40" fill="#bae6fd" stroke="#0284c7"/><path d="M 45 88 C 42 70, 50 56, 45 42" stroke="#0284c7" stroke-width="10" stroke-linecap="round"/><path d="M 52 28 L 82 23 C 86 23, 88 27, 88 36 C 88 45, 84 48, 80 48 L 50 44 Z" fill="#38bdf8" stroke="#0369a1" stroke-width="2"/><circle cx="42" cy="36" r="23" fill="#7dd3fc" stroke="#0369a1" stroke-width="3"/><ellipse cx="54" cy="27" rx="5" ry="8" fill="#fff"/><circle cx="56" cy="27" r="3.5" fill="#0c4a6e"/></svg>',
+      basic: '<svg viewBox="0 0 110 130"><circle cx="52" cy="120" rx="28" ry="6" fill="#0f172a" opacity="0.4"/><rect x="42" y="60" width="26" height="34" fill="#475569"/><polygon points="50,60 58,60 54,72" fill="#fff"/><polygon points="53,62 55,62 56,76 54,80 52,76" fill="#ef4444"/><rect x="44" y="94" width="8" height="24" fill="#1e3a8a"/><rect x="56" y="94" width="8" height="24" fill="#1d4ed8"/><path d="M 44 62 L 14 74" stroke="#475569" stroke-width="8" stroke-linecap="round"/><ellipse cx="48" cy="36" rx="18" ry="20" fill="#4ade80" stroke="#166534" stroke-width="2"/><circle cx="42" cy="32" r="6" fill="#fef08a"/><circle cx="41" cy="32" r="2" fill="#000"/><circle cx="54" cy="31" r="5" fill="#fef08a"/><circle cx="53" cy="31" r="1.6" fill="#000"/><path d="M 40 46 Q 48 52 56 46" stroke="#450a0a" stroke-width="3"/></svg>',
+      cone: '<polygon points="35,16 48,-16 61,16" fill="#f97316" stroke="#c2410c" stroke-width="2"/><rect x="38" y="2" width="20" height="6" fill="#fff"/>',
+      bucket: '<path d="M 34,16 L 37,-12 L 59,-12 L 62,16 Z" fill="#94a3b8" stroke="#475569" stroke-width="2"/>',
+      flag: '<line x1="68" y1="10" x2="68" y2="90" stroke="#78350f" stroke-width="3"/><path d="M 68 10 L 98 16 L 90 26 L 100 34 L 68 40 Z" fill="#dc2626"/>'
+    };
+
+    // Web Audio Synthesizer
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    function playTone(freq, dur=0.1, type='sine') {
+      if (isMuted) return;
+      try {
+        const osc = audioCtx.createOscillator(); const g = audioCtx.createGain();
+        osc.type = type; osc.frequency.value = freq;
+        g.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+        osc.connect(g); g.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + dur);
+      } catch(e) {}
+    }
+
+    // Build HUD Seed Bank
+    const seedBankEl = document.getElementById('seed-bank');
+    Object.keys(PLANT_DATA).forEach(type => {
+      const p = PLANT_DATA[type];
+      const card = document.createElement('div');
+      card.className = 'seed-card';
+      card.id = 'card-' + type;
+      card.innerHTML = '<span class="name">' + p.name + '</span><div class="thumb">' + SVG_MAP[type] + '</div><div class="cost-badge">' + p.cost + '</div><div class="cooldown-overlay" id="cd-' + type + '"></div>';
+      card.onclick = () => {
+        if (!card.classList.contains('disabled')) {
+          selectedPlant = selectedPlant === type ? null : type;
+          isShovel = false;
+          updateCardSelection();
+        }
+      };
+      seedBankEl.appendChild(card);
+    });
+
+    // Shovel
+    const shovelEl = document.getElementById('shovel-btn');
+    shovelEl.onclick = () => {
+      isShovel = !isShovel;
+      selectedPlant = null;
+      updateCardSelection();
+    };
+
+    function updateCardSelection() {
+      document.querySelectorAll('.seed-card').forEach(c => c.classList.remove('selected'));
+      shovelEl.classList.toggle('active', isShovel);
+      if (selectedPlant) {
+        document.getElementById('card-' + selectedPlant).classList.add('selected');
+        document.getElementById('ghost-cursor').innerHTML = SVG_MAP[selectedPlant];
+        document.getElementById('ghost-cursor').style.display = 'block';
+      } else {
+        document.getElementById('ghost-cursor').style.display = 'none';
+      }
+    }
+
+    // Grid Initialization
+    const gridEl = document.getElementById('grid');
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        const cell = document.createElement('div');
+        cell.className = 'cell ' + ((r + c) % 2 === 0 ? 'even' : 'odd');
+        cell.dataset.r = r; cell.dataset.c = c;
+        cell.onclick = () => onCellClick(r, c);
+        cell.onmouseenter = () => onCellHover(cell, r, c);
+        cell.onmouseleave = () => cell.classList.remove('highlight-valid', 'highlight-invalid');
+        gridEl.appendChild(cell);
+      }
+      mowers.push({ row: r, x: 8, state: 'idle' });
+    }
+
+    function onCellHover(cell, r, c) {
+      cell.classList.remove('highlight-valid', 'highlight-invalid');
+      const hasPlant = plants.some(p => p.r === r && p.c === c);
+      if (selectedPlant) {
+        cell.classList.add(hasPlant ? 'highlight-invalid' : 'highlight-valid');
+      } else if (isShovel && hasPlant) {
+        cell.classList.add('highlight-invalid');
+      }
+    }
+
+    function onCellClick(r, c) {
+      const idx = plants.findIndex(p => p.r === r && p.c === c);
+      if (isShovel && idx >= 0) {
+        plants.splice(idx, 1);
+        playTone(120, 0.1, 'sine');
+        isShovel = false;
+        updateCardSelection();
+        return;
+      }
+      if (selectedPlant && idx === -1) {
+        const pData = PLANT_DATA[selectedPlant];
+        if (sun >= pData.cost && cooldowns[selectedPlant] <= 0) {
+          sun -= pData.cost;
+          cooldowns[selectedPlant] = pData.cd;
+          document.getElementById('sun-count').innerText = sun;
+          playTone(140, 0.12, 'sine');
+          plants.push({
+            type: selectedPlant, r, c, hp: pData.hp, maxHp: pData.hp,
+            shootTimer: 0, sunTimer: 0, fuse: selectedPlant === 'cherrybomb' ? 1.0 : 0
+          });
+          selectedPlant = null;
+          updateCardSelection();
+        }
+      }
+    }
+
+    // Right-Click Cancel
+    window.oncontextmenu = (e) => {
+      e.preventDefault();
+      selectedPlant = null;
+      isShovel = false;
+      updateCardSelection();
+    };
+
+    window.onmousemove = (e) => {
+      const ghost = document.getElementById('ghost-cursor');
+      if (ghost.style.display === 'block') {
+        ghost.style.left = e.clientX + 'px';
+        ghost.style.top = e.clientY + 'px';
+      }
+    };
+
+    // Waves Definition
+    const WAVES = [
+      { zombies: [{ t: 'basic', r: 2, delay: 6 }, { t: 'basic', r: 1, delay: 18 }] },
+      { zombies: [{ t: 'basic', r: 0, delay: 5 }, { t: 'conehead', r: 3, delay: 14 }, { t: 'basic', r: 4, delay: 24 }] },
+      { alert: 'GELOMBANG BESAR MENDEKAT!', zombies: [{ t: 'flag', r: 2, delay: 4 }, { t: 'conehead', r: 1, delay: 10 }, { t: 'basic', r: 3, delay: 16 }, { t: 'conehead', r: 4, delay: 22 }] },
+      { zombies: [{ t: 'buckethead', r: 2, delay: 5 }, { t: 'conehead', r: 0, delay: 12 }, { t: 'basic', r: 3, delay: 18 }, { t: 'buckethead', r: 4, delay: 24 }] },
+      { alert: 'FINAL WAVE!', zombies: [{ t: 'flag', r: 2, delay: 4 }, { t: 'buckethead', r: 1, delay: 10 }, { t: 'conehead', r: 3, delay: 14 }, { t: 'conehead', r: 0, delay: 18 }, { t: 'basic', r: 4, delay: 22 }] }
+    ];
+
+    let skyTimer = 0;
+
+    function gameLoop(now) {
+      const dt = Math.min((now - lastTime) / 1000, 0.1);
+      lastTime = now;
+
+      if (isPlaying) {
+        // Cooldowns
+        Object.keys(cooldowns).forEach(k => {
+          if (cooldowns[k] > 0) cooldowns[k] = Math.max(0, cooldowns[k] - dt);
+          const ratio = cooldowns[k] / PLANT_DATA[k].cd;
+          const overlay = document.getElementById('cd-' + k);
+          if (overlay) overlay.style.height = (ratio * 100) + '%';
+          const card = document.getElementById('card-' + k);
+          if (card) card.classList.toggle('disabled', sun < PLANT_DATA[k].cost || cooldowns[k] > 0);
+        });
+
+        // Sky Sun
+        skyTimer += dt;
+        if (skyTimer >= 6.0) {
+          skyTimer = 0;
+          suns.push({
+            id: 'sun-' + Math.random(),
+            x: LAWN_OFFSET + Math.random() * 700,
+            y: -20,
+            targetY: 60 + Math.random() * 360,
+            life: 14
+          });
+        }
+
+        // Suns update
+        suns.forEach(s => {
+          if (s.y < s.targetY) s.y += 90 * dt;
+          s.life -= dt;
+        });
+        suns = suns.filter(s => s.life > 0);
+
+        // Wave update
+        waveTimer += dt;
+        const curWave = WAVES[currentWaveIdx];
+        if (curWave) {
+          document.getElementById('wave-title').innerText = 'Gelombang ' + (currentWaveIdx + 1) + '/5';
+          document.getElementById('wave-fill').style.width = Math.min(100, (waveTimer / 30) * 100) + '%';
+          document.getElementById('wave-pct').innerText = Math.round((waveTimer / 30) * 100) + '%';
+
+          curWave.zombies.forEach((zDef, idx) => {
+            const key = currentWaveIdx + '-' + idx;
+            if (waveTimer >= zDef.delay && !spawnedKeys.has(key)) {
+              spawnedKeys.add(key);
+              const hp = zDef.t === 'buckethead' ? 1500 : zDef.t === 'conehead' ? 760 : 200;
+              zombies.push({
+                id: 'z-' + Math.random(),
+                type: zDef.t,
+                r: zDef.r,
+                x: 940,
+                hp,
+                slowTimer: 0,
+                eating: false
+              });
+            }
+          });
+
+          // Wave Alert
+          if (curWave.alert && waveTimer >= 1 && waveTimer <= 4) {
+            document.getElementById('wave-alert').innerText = curWave.alert;
+            document.getElementById('wave-alert').style.display = 'block';
+          } else {
+            document.getElementById('wave-alert').style.display = 'none';
+          }
+
+          if (waveTimer > 30 && zombies.length === 0) {
+            if (currentWaveIdx < WAVES.length - 1) {
+              currentWaveIdx++;
+              waveTimer = 0;
+            } else {
+              isPlaying = false;
+              document.getElementById('victory-modal').style.display = 'flex';
+            }
+          }
+        }
+
+        // Plants update
+        plants.forEach((p, pIdx) => {
+          if (p.type === 'sunflower') {
+            p.sunTimer += dt;
+            if (p.sunTimer >= 10.0) {
+              p.sunTimer = 0;
+              suns.push({
+                id: 'sun-' + Math.random(),
+                x: LAWN_OFFSET + p.c * CELL_W + 40,
+                y: p.r * CELL_H + 40,
+                targetY: p.r * CELL_H + 55,
+                life: 14
+              });
+            }
+          } else if (p.type === 'peashooter' || p.type === 'snowpea') {
+            p.shootTimer += dt;
+            const hasZ = zombies.some(z => z.r === p.r && z.x > LAWN_OFFSET + p.c * CELL_W);
+            if (hasZ && p.shootTimer >= 1.5) {
+              p.shootTimer = 0;
+              playTone(p.type === 'snowpea' ? 440 : 340, 0.08, 'triangle');
+              projectiles.push({
+                r: p.r,
+                x: LAWN_OFFSET + p.c * CELL_W + 65,
+                isIce: p.type === 'snowpea'
+              });
+            }
+          } else if (p.type === 'cherrybomb') {
+            p.fuse -= dt;
+            if (p.fuse <= 0) {
+              playTone(80, 0.5, 'sawtooth');
+              zombies.forEach(z => {
+                if (Math.abs(z.r - p.r) <= 1 && Math.abs(((z.x - LAWN_OFFSET) / CELL_W) - p.c) <= 1.4) {
+                  z.hp = 0;
+                }
+              });
+              plants.splice(pIdx, 1);
+            }
+          }
+        });
+
+        // Projectiles
+        projectiles.forEach((proj, prIdx) => {
+          proj.x += 340 * dt;
+          for (let z of zombies) {
+            if (z.r === proj.r && Math.abs(z.x - proj.x) < 24) {
+              z.hp -= 20;
+              if (proj.isIce) z.slowTimer = 3.0;
+              playTone(200, 0.06, 'triangle');
+              projectiles.splice(prIdx, 1);
+              break;
+            }
+          }
+        });
+        projectiles = projectiles.filter(p => p.x < 960);
+
+        // Zombies
+        zombies = zombies.filter(z => z.hp > 0);
+        zombies.forEach(z => {
+          z.slowTimer = Math.max(0, z.slowTimer - dt);
+          const spd = (z.slowTimer > 0 ? 12 : 24) * dt;
+
+          // Check plant collision
+          const plant = plants.find(p => p.r === z.r && Math.abs(z.x - (LAWN_OFFSET + p.c * CELL_W + 40)) < 26);
+          if (plant) {
+            plant.hp -= 90 * dt;
+            if (plant.hp <= 0) plants = plants.filter(p => p !== plant);
+          } else {
+            z.x -= spd;
+          }
+
+          // Lawnmower trigger
+          const mower = mowers.find(m => m.row === z.r && m.state === 'idle');
+          if (mower && z.x <= LAWN_OFFSET) {
+            mower.state = 'triggered';
+            playTone(180, 0.8, 'sawtooth');
+          }
+
+          // Breach without mower -> game over
+          if (z.x <= 15) {
+            isPlaying = false;
+            document.getElementById('gameover-modal').style.display = 'flex';
+          }
+        });
+
+        // Lawnmowers
+        mowers.forEach(m => {
+          if (m.state === 'triggered') {
+            m.x += 500 * dt;
+            zombies = zombies.filter(z => !(z.r === m.row && z.x <= m.x + 45));
+          }
+        });
+
+        // Render Entities
+        renderEntities();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    function renderEntities() {
+      const layer = document.getElementById('entities');
+      let html = '';
+
+      // Mowers
+      mowers.forEach(m => {
+        if (m.x < 960) {
+          html += '<div class="mower-el" style="left:' + m.x + 'px; top:' + (m.row * CELL_H + 20) + 'px;"><svg viewBox="0 0 100 80"><rect x="30" y="30" width="56" height="34" rx="6" fill="#dc2626"/><circle cx="38" cy="64" r="10" fill="#0f172a"/><circle cx="76" cy="64" r="10" fill="#0f172a"/><line x1="50" y1="36" x2="16" y2="12" stroke="#e2e8f0" stroke-width="4"/></svg></div>';
+        }
+      });
+
+      // Plants
+      plants.forEach(p => {
+        html += '<div class="plant-el" style="left:' + (LAWN_OFFSET + p.c * CELL_W + 3) + 'px; top:' + (p.r * CELL_H + 5) + 'px;">' + SVG_MAP[p.type] + '</div>';
+      });
+
+      // Zombies
+      zombies.forEach(z => {
+        let acc = '';
+        if (z.type === 'conehead' && z.hp > 200) acc = SVG_MAP.cone;
+        if (z.type === 'buckethead' && z.hp > 200) acc = SVG_MAP.bucket;
+        if (z.type === 'flag') acc = SVG_MAP.flag;
+        const slowFilter = z.slowTimer > 0 ? 'filter: hue-rotate(180deg);' : '';
+        html += '<div class="zombie-el" style="left:' + (z.x - 45) + 'px; top:' + (z.r * CELL_H - 10) + 'px; ' + slowFilter + '">' + SVG_MAP.basic.replace('</svg>', acc + '</svg>') + '</div>';
+      });
+
+      // Projectiles
+      projectiles.forEach(p => {
+        const color = p.isIce ? '#38bdf8' : '#4ade80';
+        html += '<div class="pea-el" style="left:' + p.x + 'px; top:' + (p.r * CELL_H + 30) + 'px;"><svg viewBox="0 0 30 30"><circle cx="15" cy="15" r="11" fill="' + color + '" stroke="#14532d" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="#fff"/></svg></div>';
+      });
+
+      // Suns
+      suns.forEach(s => {
+        html += '<div class="sun-el" onclick="collectSun(\'' + s.id + '\')" style="left:' + (s.x - 30) + 'px; top:' + (s.y - 30) + 'px;"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="46" fill="#facc15" opacity="0.6"/><circle cx="50" cy="50" r="28" fill="#fef08a" stroke="#ca8a04" stroke-width="2"/></svg></div>';
+      });
+
+      layer.innerHTML = html;
+    }
+
+    // Educational Quiz Question Banks
+    let selectedSubject = 'matematika';
+    let pendingSunId = null;
+
+    const IPAS_BANK = [
+      { q: "Bagian tumbuhan yang menyerap air dari tanah adalah...", opts: ["Akar", "Batang", "Daun", "Bunga"], a: 0, exp: "Akar menyerap air dan mineral dari tanah." },
+      { q: "Proses tumbuhan memasak makanan dengan bantuan sinar matahari disebut...", opts: ["Fotosintesis", "Respirasi", "Metamorfosis", "Penguapan"], a: 0, exp: "Fotosintesis menghasilkan zat makanan bagi tumbuhan." },
+      { q: "Zat hijau daun pada tumbuhan disebut...", opts: ["Klorofil", "Stomata", "Floem", "Xilem"], a: 0, exp: "Klorofil berfungsi menangkap cahaya matahari." },
+      { q: "Perubahan wujud benda padat menjadi gas disebut...", opts: ["Menyublim", "Menguap", "Membeku", "Mencair"], a: 0, exp: "Contoh menyublim adalah kapur barus yang mengecil." }
+    ];
+
+    const ENGLISH_BANK = [
+      { q: 'What is the English word for "Gajah"?', opts: ["Elephant", "Giraffe", "Lion", "Tiger"], a: 0, exp: "Elephant artinya gajah." },
+      { q: '"Butterfly" dalam bahasa Indonesia artinya...', opts: ["Kupu-kupu", "Capung", "Lebah", "Semut"], a: 0, exp: "Butterfly adalah kupu-kupu." },
+      { q: 'What fruit is red and starts with "A"?', opts: ["Apple", "Avocado", "Apricot", "Almond"], a: 0, exp: "Apple (apel) berwarna merah." },
+      { q: 'What do you wear on your feet before shoes?', opts: ["Socks", "Hat", "Gloves", "Belt"], a: 0, exp: "Socks adalah kaus kaki." }
+    ];
+
+    const BAHASA_BANK = [
+      { q: 'Lawan kata (antonim) dari "Rajin" adalah...', opts: ["Malas", "Pandai", "Hemat", "Cepat"], a: 0, exp: "Antonim dari rajin adalah malas." },
+      { q: 'Persamaan kata (sinonim) dari "Senang" adalah...', opts: ["Gembira", "Sedih", "Marah", "Kecewa"], a: 0, exp: "Senang sama artinya dengan gembira." },
+      { q: 'Penulisan kata baku yang tepat adalah...', opts: ["Praktik", "Praktek", "Praktekan", "Praptek"], a: 0, exp: "Bentuk baku menurut KBBI adalah Praktik." },
+      { q: 'Tanda baca untuk mengakhiri kalimat tanya adalah...', opts: ["Tanda tanya (?)", "Tanda seru (!)", "Titik (.)", "Koma (,)"], a: 0, exp: "Kalimat tanya selalu diakhiri tanda tanya." }
+    ];
+
+    function getQuestion() {
+      if (selectedSubject === 'matematika') {
+        const a = Math.floor(Math.random() * 20) + 5;
+        const b = Math.floor(Math.random() * 10) + 2;
+        const op = Math.random() > 0.5 ? '+' : 'x';
+        const ans = op === '+' ? a + b : a * b;
+        const qText = "Berapa hasil dari " + a + " " + op + " " + b + " = ?";
+        const opts = [ans, ans + 2, ans - 1 > 0 ? ans - 1 : ans + 4, ans + 5].sort(() => Math.random() - 0.5);
+        return { q: qText, opts: opts.map(String), a: opts.indexOf(ans), exp: a + " " + op + " " + b + " = " + ans };
+      }
+      const bank = selectedSubject === 'english' ? ENGLISH_BANK : selectedSubject === 'bahasa_indonesia' ? BAHASA_BANK : IPAS_BANK;
+      const item = bank[Math.floor(Math.random() * bank.length)];
+      const shuffledOpts = [...item.opts].sort(() => Math.random() - 0.5);
+      return { q: item.q, opts: shuffledOpts, a: shuffledOpts.indexOf(item.opts[item.a]), exp: item.exp };
+    }
+
+    let activeQuestion = null;
+
+    window.collectSun = function(id) {
+      const idx = suns.findIndex(s => s.id === id);
+      if (idx >= 0 && !activeQuestion) {
+        pendingSunId = id;
+        activeQuestion = getQuestion();
+        showQuizModal(activeQuestion);
+      }
+    };
+
+    function showQuizModal(q) {
+      let modal = document.getElementById('quiz-modal');
+      if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'quiz-modal';
+        modal.className = 'modal-overlay';
+        document.body.appendChild(modal);
+      }
+      modal.innerHTML = '<div class="modal-card" style="border-color:#f59e0b;"><h1 style="color:#fde047; font-size:22px;">KUIS MATAHARI (+50)</h1><p style="font-size:16px; font-weight:bold; color:#fff; background:#1e293b; padding:12px; border-radius:12px; margin-bottom:12px;">' + q.q + '</p><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;" id="quiz-opts"></div><p id="quiz-fb" style="margin-top:10px; font-size:12px;"></p></div>';
+      
+      const optContainer = document.getElementById('quiz-opts');
+      q.opts.forEach((opt, idx) => {
+        const btn = document.createElement('button');
+        btn.className = 'btn-action';
+        btn.style.padding = '10px';
+        btn.style.fontSize = '14px';
+        btn.innerHTML = '<strong style="color:#fde047;">[' + (idx + 1) + ']</strong> ' + opt;
+        btn.onclick = () => answerQuiz(idx);
+        optContainer.appendChild(btn);
+      });
+      modal.style.display = 'flex';
+    }
+
+    function answerQuiz(chosenIdx) {
+      if (!activeQuestion) return;
+      const isCorrect = chosenIdx === activeQuestion.a;
+      const fb = document.getElementById('quiz-fb');
+      if (isCorrect) {
+        fb.innerHTML = '<span style="color:#4ade80; font-weight:bold;">Benar! +50 Matahari Diperoleh!</span>';
+        playTone(660, 0.15, 'triangle');
+        setTimeout(() => {
+          if (pendingSunId) {
+            const sIdx = suns.findIndex(s => s.id === pendingSunId);
+            if (sIdx >= 0) suns.splice(sIdx, 1);
+            sun += 50;
+            document.getElementById('sun-count').innerText = sun;
+          }
+          document.getElementById('quiz-modal').style.display = 'none';
+          activeQuestion = null;
+          pendingSunId = null;
+        }, 600);
+      } else {
+        fb.innerHTML = '<span style="color:#f43f5e; font-weight:bold;">Kurang Tepat! ' + activeQuestion.exp + '</span>';
+        playTone(160, 0.25, 'sawtooth');
+        setTimeout(() => {
+          document.getElementById('quiz-modal').style.display = 'none';
+          activeQuestion = null;
+          pendingSunId = null;
+        }, 1600);
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (activeQuestion && ['1', '2', '3', '4'].includes(e.key)) {
+        answerQuiz(parseInt(e.key, 10) - 1);
+      }
+    });
+
+    document.getElementById('start-btn').onclick = () => {
+      audioCtx.resume();
+      document.getElementById('start-modal').style.display = 'none';
+      isPlaying = true;
+    };
+
+    document.getElementById('audio-toggle').onclick = () => {
+      isMuted = !isMuted;
+      document.getElementById('audio-toggle').innerText = 'Audio: ' + (isMuted ? 'OFF' : 'ON');
+    };
+
+    document.getElementById('restart-btn').onclick = () => location.reload();
+
+    const fsBtn = document.getElementById('fullscreen-btn');
+    if (fsBtn) {
+      fsBtn.onclick = () => {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      };
+      document.addEventListener('fullscreenchange', () => {
+        fsBtn.innerText = document.fullscreenElement ? 'Keluar' : 'Layar Penuh';
+      });
+    }
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
