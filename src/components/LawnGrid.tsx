@@ -257,7 +257,7 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
               left: zombie.x - 37.5,
               // Render all zombie types at 75% scale. Keep the lower edge aligned
               // with the same lane baseline so shrinking does not make zombies float.
-              top: y + (CELL_HEIGHT - 105) / 2 + 19,
+              top: y + (CELL_HEIGHT - 105) / 2,
               width: 78.75,
               height: 105
             }}
