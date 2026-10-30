@@ -15,7 +15,7 @@ export const LAWN_HEIGHT = GRID_ROWS * CELL_HEIGHT; // 550px
 export const RIGHT_STREET_WIDTH = STAGE_WIDTH - LAWN_WIDTH; // 224px street walkway
 export const ZOMBIE_SPAWN_X = STAGE_WIDTH - 50; // 1230px (enters from street)
 
-export const INITIAL_SUN = 200;
+export const INITIAL_SUN = 100;
 export const SKY_SUN_INTERVAL = 5.0; // Matahari alami jatuh setiap 5 detik
 export const SUN_VALUE = 25; // Matahari biasa: 25 poin
 export const QUIZ_SUN_VALUE = 50; // Kuis benar: 50 poin
@@ -72,7 +72,7 @@ export const PLANTS: Record<PlantType, PlantConfig> = {
   }
 };
 
-export const SUNFLOWER_PRODUCE_INTERVAL = 12.0; // Produce sun every 12 seconds
+export const SUNFLOWER_PRODUCE_INTERVAL = 20.0; // Sunflower menghasilkan matahari setiap 20 detik
 export const PEASHOOTER_SHOOT_INTERVAL = 1.5; // seconds
 export const PEA_DAMAGE = 20;
 export const PEA_SPEED = 420; // px/s
@@ -81,7 +81,9 @@ export const SNOW_PEA_SLOW_DURATION = 3.0; // 3 seconds slow
 export const CHERRY_BOMB_FUSE = 1.0; // 1 second fuse
 export const CHERRY_BOMB_DAMAGE = 1800; // instant kill
 
-export const ZOMBIE_SPEED_NORMAL = 18; // 50% lebih lambat & santai (~65s dari jalan ke rumah)
+export const ZOMBIE_SPEED_NORMAL = 18; // Kecepatan zombie biasa
+export const ZOMBIE_SPEED_FLAG = ZOMBIE_SPEED_NORMAL * 1.5; // Zombie Flag 1,5x lebih cepat
+export const QUIZ_WRONG_SCORE = 0; // Jawaban kuis salah tidak mendapat poin
 export const ZOMBIE_DAMAGE_PER_SEC = 45; // 50% lebih sedikit damage gigitan zombie ke tanaman
 export const LAWN_MOWER_SPEED = 620; // px/s when triggered
 
@@ -173,21 +175,30 @@ const BASE_GAME_WAVES: WaveDefinition[] = [
 ];
 
 
-// Wave 1-2: pertahankan penggandaan 3x dengan sebaran jalur seperti sebelumnya.
-// Wave 3-5: zombie tambahan datang bergerombol 2-3 sekaligus pada jalur yang sama.
 // Semua wave: setiap zombie dasar muncul 2 kali total.
-// Salinan kedua digeser 2 jalur agar kemunculan lebih menyebar.
+// Wave 1-4: salinan kedua digeser 2 jalur agar lebih menyebar.
+// Wave 5: zombie tambahan dibagi merata ke seluruh 5 jalur.
 export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES.map((wave) => ({
   ...wave,
-  subWaves: wave.subWaves.map((subWave) => ({
-    ...subWave,
-    zombies: subWave.zombies.flatMap((zombie) =>
-      [0, 1].map((copyIndex) => ({
-        ...zombie,
-        row: zombie.row === undefined
-          ? undefined
-          : (zombie.row + copyIndex * 2) % GRID_ROWS
-      }))
-    )
-  }))
+  subWaves: wave.subWaves.map((subWave) => {
+    const doubledZombies = subWave.zombies.flatMap((zombie) => [
+      { ...zombie },
+      { ...zombie }
+    ]);
+
+    return {
+      ...subWave,
+      zombies: wave.waveNumber === 5
+        ? doubledZombies.map((zombie, index) => ({
+            ...zombie,
+            row: index % GRID_ROWS
+          }))
+        : doubledZombies.map((zombie, index) => ({
+            ...zombie,
+            row: zombie.row === undefined
+              ? undefined
+              : (zombie.row + (index % 2) * 2) % GRID_ROWS
+          }))
+    };
+  })
 }));
