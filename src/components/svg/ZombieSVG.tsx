@@ -30,7 +30,7 @@ export const ZombieSVG: React.FC<ZombieSVGProps> = ({
 
   return (
     <svg
-      viewBox="0 0 110 130"
+      viewBox="0 -16 110 146"
       className={`w-full h-full ${className}`}
       xmlns="http://www.w3.org/2000/svg"
       style={{
