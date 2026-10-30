@@ -83,6 +83,13 @@ export const CHERRY_BOMB_DAMAGE = 1800; // instant kill
 
 export const ZOMBIE_SPEED_NORMAL = 18; // Kecepatan zombie biasa
 export const ZOMBIE_SPEED_FLAG = ZOMBIE_SPEED_NORMAL * 1.5; // Zombie Flag 1,5x lebih cepat
+
+// Ketahanan zombie mengikuti PvZ original (2009).
+// HP pelindung dihitung terpisah dari HP tubuh.
+export const ZOMBIE_HP_BODY = 270;
+export const ZOMBIE_HP_CONE = 370;
+export const ZOMBIE_HP_BUCKET = 1100;
+
 export const QUIZ_WRONG_SCORE = 0; // Jawaban kuis salah tidak mendapat poin
 export const ZOMBIE_DAMAGE_PER_SEC = 45; // 50% lebih sedikit damage gigitan zombie ke tanaman
 export const LAWN_MOWER_SPEED = 620; // px/s when triggered
