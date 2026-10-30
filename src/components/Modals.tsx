@@ -84,7 +84,7 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight font-sans uppercase leading-tight">
-                  Plants vs. Zombies Edu
+                  PVZ-QUIZ by hasbyarief
                 </h1>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-amber-300 font-bold">
                   <GraduationCap className="w-4 h-4 text-amber-400" />
@@ -108,7 +108,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   Pilih Topik Kosakata:
                 </span>
                 <span className="text-[11px] text-emerald-400 font-semibold">
-                  {isDropdownOpen ? 'Klik topik di bawah' : 'Klik untuk ganti topik'}
+                  {isDropdownOpen ? 'Klik topik di bawah' : ''}
                 </span>
               </div>
 
