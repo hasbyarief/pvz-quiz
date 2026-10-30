@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { QuizQuestion, SUBJECTS } from '../game/quizData';
 import { QUIZ_SUN_VALUE } from '../game/constants';
 import { SunSVG } from './svg/SunSVG';
@@ -15,6 +15,8 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState<number>(10);
+  const latestOnAnswer = useRef(onAnswer);
+  latestOnAnswer.current = onAnswer;
 
   const subjectMeta = SUBJECTS.find((s) => s.id === question.subject) || SUBJECTS[0];
 
@@ -32,40 +34,50 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
       }, 750);
     } else {
       soundManager.playQuizWrong();
-      // Give student 1 seconds to read explanation before closing, or click continue
+      // Give student 2.2 seconds to read explanation before closing, or click continue
       setTimeout(() => {
         onAnswer(false);
       }, 2200);
     }
   };
 
-  // Hitung mundur 10 detik. Saat habis, jawaban otomatis dianggap salah.
+  // Timer memakai deadline absolut agar tidak melambat/ter-reset akibat render ulang.
+  // Interval hanya memperbarui tampilan; sisa waktu dihitung dari waktu sebenarnya.
   useEffect(() => {
     if (isAnswered) return;
 
-    if (timeLeft <= 0) {
-      setIsAnswered(true);
-      soundManager.playQuizWrong();
-      onAnswer(false);
-      return;
-    }
+    const durationMs = 10_000;
+    const deadline = Date.now() + durationMs;
 
-    const timeoutId = window.setTimeout(() => {
-      setTimeLeft((current) => Math.max(0, current - 1));
-    }, 1000);
+    const updateTimer = () => {
+      const remainingMs = Math.max(0, deadline - Date.now());
+      setTimeLeft(remainingMs / 1000);
 
-    return () => window.clearTimeout(timeoutId);
-  }, [timeLeft, isAnswered, onAnswer]);
+      if (remainingMs <= 0) {
+        window.clearInterval(intervalId);
+        setIsAnswered(true);
+        soundManager.playQuizWrong();
+        latestOnAnswer.current(false);
+      }
+    };
+
+    const intervalId = window.setInterval(updateTimer, 50);
+    updateTimer();
+
+    return () => window.clearInterval(intervalId);
+  }, [isAnswered]);
+
+  const displayedTime = Math.ceil(timeLeft);
 
   const timerColor =
-    timeLeft >= 6
+    displayedTime >= 6
       ? 'bg-emerald-500 text-emerald-300 border-emerald-500/50'
-      : timeLeft >= 3
+      : displayedTime >= 3
         ? 'bg-amber-500 text-amber-300 border-amber-500/50'
         : 'bg-rose-500 text-rose-300 border-rose-500/50';
 
   const timerBarColor =
-    timeLeft >= 6 ? 'bg-emerald-400' : timeLeft >= 3 ? 'bg-amber-400' : 'bg-rose-500';
+    displayedTime >= 6 ? 'bg-emerald-400' : displayedTime >= 3 ? 'bg-amber-400' : 'bg-rose-500';
 
   // Keyboard shortcut listener (1, 2, 3, 4)
   useEffect(() => {
@@ -149,12 +161,12 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-xs font-bold text-slate-300">Waktu menjawab</span>
             <span className={`text-sm font-black font-mono tabular-nums ${timerColor.split(' ').slice(1).join(' ')}`}>
-              00:{String(timeLeft).padStart(2, '0')}
+              00:{String(displayedTime).padStart(2, '0')}
             </span>
           </div>
           <div className="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
             <div
-              className={`h-full rounded-full transition-all duration-300 ${timerBarColor}`}
+              className={`h-full rounded-full ${timerBarColor}`}
               style={{ width: `${(timeLeft / 10) * 100}%` }}
             />
           </div>
