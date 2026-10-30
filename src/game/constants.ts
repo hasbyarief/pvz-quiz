@@ -83,13 +83,9 @@ export const CHERRY_BOMB_DAMAGE = 1800; // instant kill
 
 export const ZOMBIE_SPEED_NORMAL = 18; // Kecepatan zombie biasa
 export const ZOMBIE_SPEED_FLAG = ZOMBIE_SPEED_NORMAL * 1.5; // Zombie Flag 1,5x lebih cepat
-
-// Ketahanan zombie mengikuti PvZ original (2009).
-// HP pelindung dihitung terpisah dari HP tubuh.
-export const ZOMBIE_HP_BODY = 270;
-export const ZOMBIE_HP_CONE = 370;
-export const ZOMBIE_HP_BUCKET = 1100;
-
+export const ZOMBIE_BODY_HP = 270; // HP tubuh Basic/Flag sesuai PvZ original
+export const ZOMBIE_CONE_ARMOR_HP = 370; // Total Conehead 270 + 370 = 640
+export const ZOMBIE_BUCKET_ARMOR_HP = 1100; // Total Buckethead 270 + 1100 = 1370
 export const QUIZ_WRONG_SCORE = 0; // Jawaban kuis salah tidak mendapat poin
 export const ZOMBIE_DAMAGE_PER_SEC = 45; // 50% lebih sedikit damage gigitan zombie ke tanaman
 export const LAWN_MOWER_SPEED = 620; // px/s when triggered
@@ -107,23 +103,24 @@ export interface WaveDefinition {
   subWaves: WaveStep[];
 }
 
-// 50% Lebih Mudah: Jarak spawn lebih lapang, jumlah zombie lebih ramah untuk anak-anak belajar
+// Sistem wave bertahap: jumlah dan jeda spawn meningkat di setiap wave.
+// Setiap sub-wave adalah satu kelompok yang muncul bersamaan.
 const BASE_GAME_WAVES: WaveDefinition[] = [
   {
     waveNumber: 1,
     title: 'Gelombang 1: Zombie Pertama Muncul',
     subWaves: [
-      { timeOffset: 18, zombies: [{ type: 'basic', row: 2 }] },
-      { timeOffset: 42, zombies: [{ type: 'basic', row: 1 }] }
+      { timeOffset: 12, zombies: [{ type: 'basic', row: 1 }, { type: 'basic', row: 3 }] },
+      { timeOffset: 24, zombies: [{ type: 'basic', row: 0 }, { type: 'basic', row: 4 }] }
     ]
   },
   {
     waveNumber: 2,
     title: 'Gelombang 2: Pasukan Helm Kerucut',
     subWaves: [
-      { timeOffset: 18, zombies: [{ type: 'basic', row: 0 }] },
-      { timeOffset: 42, zombies: [{ type: 'conehead', row: 3 }] },
-      { timeOffset: 66, zombies: [{ type: 'basic', row: 2 }] }
+      { timeOffset: 10, zombies: [{ type: 'basic', row: 0 }, { type: 'basic', row: 2 }] },
+      { timeOffset: 20, zombies: [{ type: 'conehead', row: 1 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 30, zombies: [{ type: 'conehead', row: 3 }, { type: 'basic', row: 0 }, { type: 'basic', row: 2 }] }
     ]
   },
   {
@@ -131,18 +128,23 @@ const BASE_GAME_WAVES: WaveDefinition[] = [
     title: 'Gelombang 3: Gelombang Besar Mendekat!',
     isHugeWave: true,
     subWaves: [
-      { timeOffset: 18, zombies: [{ type: 'flag', row: 2 }, { type: 'basic', row: 1 }] },
-      { timeOffset: 48, zombies: [{ type: 'conehead', row: 3 }] },
-      { timeOffset: 78, zombies: [{ type: 'basic', row: 2 }, { type: 'conehead', row: 4 }] }
+      { timeOffset: 8, zombies: [{ type: 'flag', row: 0 }, { type: 'basic', row: 0 }, { type: 'basic', row: 2 }] },
+      { timeOffset: 16, zombies: [{ type: 'conehead', row: 1 }, { type: 'basic', row: 1 }, { type: 'basic', row: 3 }] },
+      { timeOffset: 24, zombies: [{ type: 'conehead', row: 2 }, { type: 'basic', row: 2 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 32, zombies: [{ type: 'flag', row: 4 }, { type: 'conehead', row: 3 }, { type: 'basic', row: 0 }] }
     ]
   },
   {
     waveNumber: 4,
     title: 'Gelombang 4: Pasukan Ember Besi',
+    isHugeWave: true,
     subWaves: [
-      { timeOffset: 18, zombies: [{ type: 'buckethead', row: 2 }] },
-      { timeOffset: 48, zombies: [{ type: 'conehead', row: 1 }] },
-      { timeOffset: 78, zombies: [{ type: 'buckethead', row: 4 }, { type: 'basic', row: 3 }] }
+      { timeOffset: 6, zombies: [{ type: 'buckethead', row: 0 }, { type: 'basic', row: 0 }, { type: 'basic', row: 2 }] },
+      { timeOffset: 12, zombies: [{ type: 'conehead', row: 1 }, { type: 'basic', row: 1 }, { type: 'basic', row: 3 }] },
+      { timeOffset: 18, zombies: [{ type: 'buckethead', row: 2 }, { type: 'conehead', row: 2 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 24, zombies: [{ type: 'buckethead', row: 3 }, { type: 'basic', row: 3 }, { type: 'conehead', row: 0 }] },
+      { timeOffset: 30, zombies: [{ type: 'conehead', row: 4 }, { type: 'basic', row: 4 }, { type: 'basic', row: 1 }] },
+      { timeOffset: 36, zombies: [{ type: 'buckethead', row: 0 }, { type: 'conehead', row: 2 }, { type: 'basic', row: 4 }] }
     ]
   },
   {
@@ -151,61 +153,16 @@ const BASE_GAME_WAVES: WaveDefinition[] = [
     isHugeWave: true,
     isFinalWave: true,
     subWaves: [
-      {
-        // Pembuka final wave diberi jeda lebih panjang.
-        timeOffset: 20,
-        zombies: [
-          { type: 'flag', row: 2 },
-          { type: 'conehead', row: 1 },
-          { type: 'basic', row: 4 }
-        ]
-      },
-      {
-        // Gelombang kedua datang setelah jeda yang lebih lapang.
-        timeOffset: 55,
-        zombies: [
-          { type: 'buckethead', row: 3 },
-          { type: 'conehead', row: 0 },
-          { type: 'basic', row: 2 }
-        ]
-      },
-      {
-        // Kelompok terakhir muncul lebih lambat.
-        timeOffset: 90,
-        zombies: [
-          { type: 'buckethead', row: 2 },
-          { type: 'conehead', row: 3 }
-        ]
-      }
+      { timeOffset: 4, zombies: [{ type: 'flag', row: 0 }, { type: 'conehead', row: 0 }, { type: 'basic', row: 2 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 8, zombies: [{ type: 'buckethead', row: 1 }, { type: 'basic', row: 1 }, { type: 'conehead', row: 3 }, { type: 'basic', row: 3 }] },
+      { timeOffset: 12, zombies: [{ type: 'buckethead', row: 2 }, { type: 'conehead', row: 2 }, { type: 'basic', row: 0 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 16, zombies: [{ type: 'flag', row: 3 }, { type: 'conehead', row: 3 }, { type: 'basic', row: 1 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 20, zombies: [{ type: 'buckethead', row: 4 }, { type: 'conehead', row: 0 }, { type: 'basic', row: 2 }, { type: 'basic', row: 3 }] },
+      { timeOffset: 24, zombies: [{ type: 'buckethead', row: 1 }, { type: 'conehead', row: 1 }, { type: 'basic', row: 2 }, { type: 'basic', row: 4 }] },
+      { timeOffset: 28, zombies: [{ type: 'flag', row: 2 }, { type: 'buckethead', row: 3 }, { type: 'conehead', row: 3 }, { type: 'basic', row: 0 }] }
     ]
   }
 ];
 
-
-// Semua wave: setiap zombie dasar muncul 2 kali total.
-// Wave 1-4: salinan kedua digeser 2 jalur agar lebih menyebar.
-// Wave 5: zombie tambahan dibagi merata ke seluruh 5 jalur.
-export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES.map((wave) => ({
-  ...wave,
-  subWaves: wave.subWaves.map((subWave) => {
-    const doubledZombies = subWave.zombies.flatMap((zombie) => [
-      { ...zombie },
-      { ...zombie }
-    ]);
-
-    return {
-      ...subWave,
-      zombies: wave.waveNumber === 5
-        ? doubledZombies.map((zombie, index) => ({
-            ...zombie,
-            row: index % GRID_ROWS
-          }))
-        : doubledZombies.map((zombie, index) => ({
-            ...zombie,
-            row: zombie.row === undefined
-              ? undefined
-              : (zombie.row + (index % 2) * 2) % GRID_ROWS
-          }))
-    };
-  })
-}));
+// Tidak ada penggandaan otomatis di sini: jumlah di atas adalah jumlah final.
+export const GAME_WAVES: WaveDefinition[] = BASE_GAME_WAVES;

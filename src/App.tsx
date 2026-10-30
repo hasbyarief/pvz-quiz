@@ -34,9 +34,9 @@ import {
   CHERRY_BOMB_DAMAGE,
   ZOMBIE_SPEED_NORMAL,
   ZOMBIE_SPEED_FLAG,
-  ZOMBIE_HP_BODY,
-  ZOMBIE_HP_CONE,
-  ZOMBIE_HP_BUCKET,
+  ZOMBIE_BODY_HP,
+  ZOMBIE_CONE_ARMOR_HP,
+  ZOMBIE_BUCKET_ARMOR_HP,
   ZOMBIE_DAMAGE_PER_SEC,
   LAWN_MOWER_SPEED,
   GAME_WAVES,
@@ -560,8 +560,8 @@ export default function App() {
                 const isBucket = zDef.type === 'buckethead';
                 const isFlag = zDef.type === 'flag';
 
-                // HP mengikuti PvZ original: 270 tubuh, plus armor jika ada.
-                const hp = ZOMBIE_HP_BODY;
+                // Ketahanan mengikuti PvZ original: tubuh 270 HP, helm/ember terpisah.
+                const hp = ZOMBIE_BODY_HP;
                 const speed = isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL;
 
                 zombiesRef.current.push({
@@ -571,8 +571,8 @@ export default function App() {
                   x: ZOMBIE_SPAWN_X + zIdx * 35,
                   hp,
                   maxHp: hp,
-                  coneHp: isCone ? ZOMBIE_HP_CONE : undefined,
-                  bucketHp: isBucket ? ZOMBIE_HP_BUCKET : undefined,
+                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
+                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
                   speed,
                   isEating: false,
                   eatingTargetId: null,
