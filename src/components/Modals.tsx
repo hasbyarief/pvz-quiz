@@ -108,7 +108,7 @@ export const Modals: React.FC<ModalsProps> = ({
                   Pilih Topik Kosakata:
                 </span>
                 <span className="text-[11px] text-emerald-400 font-semibold">
-                  {isDropdownOpen ? 'Klik topik di bawah' : ''}
+                  {isDropdownOpen ? '' : ''}
                 </span>
               </div>
 
