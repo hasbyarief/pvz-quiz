@@ -81,11 +81,11 @@ export const SNOW_PEA_SLOW_DURATION = 3.0; // 3 seconds slow
 export const CHERRY_BOMB_FUSE = 1.0; // 1 second fuse
 export const CHERRY_BOMB_DAMAGE = 1800; // instant kill
 
-export const ZOMBIE_SPEED_NORMAL = 18; // Kecepatan zombie biasa
-export const ZOMBIE_SPEED_FLAG = ZOMBIE_SPEED_NORMAL * 1.5; // Zombie Flag 1,5x lebih cepat
-export const ZOMBIE_BODY_HP = 270; // HP tubuh Basic/Flag sesuai PvZ original
-export const ZOMBIE_CONE_ARMOR_HP = 370; // Total Conehead 270 + 370 = 640
-export const ZOMBIE_BUCKET_ARMOR_HP = 1100; // Total Buckethead 270 + 1100 = 1370
+export const ZOMBIE_SPEED_NORMAL = 20; // Kecepatan zombie biasa
+export const ZOMBIE_SPEED_FLAG = ZOMBIE_SPEED_NORMAL * 2; // Zombie Flag 2x lebih cepat
+export const ZOMBIE_BODY_HP = 300; // HP tubuh Basic/Flag sesuai PvZ original
+export const ZOMBIE_CONE_ARMOR_HP = 400; // Total Conehead 270 + 370 = 640
+export const ZOMBIE_BUCKET_ARMOR_HP = 1500; // Total Buckethead 270 + 1100 = 1370
 export const QUIZ_WRONG_SCORE = 0; // Jawaban kuis salah tidak mendapat poin
 export const ZOMBIE_DAMAGE_PER_SEC = 45; // 50% lebih sedikit damage gigitan zombie ke tanaman
 export const LAWN_MOWER_SPEED = 620; // px/s when triggered
