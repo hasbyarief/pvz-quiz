@@ -67,7 +67,7 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
 
   return (
     <div
-      className="relative select-none overflow-hidden shadow-2xl border-4 border-emerald-950/80 bg-emerald-900 mx-auto rounded-xl"
+      className="relative select-none overflow-visible shadow-2xl border-4 border-emerald-950/80 bg-emerald-900 mx-auto rounded-xl"
       style={{
         width: STAGE_WIDTH, // 1280px
         height: LAWN_HEIGHT // 550px
