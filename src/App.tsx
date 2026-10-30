@@ -138,6 +138,9 @@ export default function App() {
   const finalWaveElapsedRef = useRef<number>(0);
   const finalWaveSpawnAccumulatorRef = useRef<number>(0);
   const finalWaveDynamicSpawnedRef = useRef<number>(0);
+  // Mencegah banner wave yang sama dipicu berulang pada setiap frame.
+  const waveAlertShownRef = useRef<Set<number>>(new Set());
+  const finalWaveClearAlertShownRef = useRef<boolean>(false);
 
   // Sync state to refs on initialize
   const resetGame = useCallback((subjectOverride?: SubjectCategory) => {
@@ -199,6 +202,8 @@ export default function App() {
     finalWaveElapsedRef.current = 0;
     finalWaveSpawnAccumulatorRef.current = 0;
     finalWaveDynamicSpawnedRef.current = 0;
+    waveAlertShownRef.current.clear();
+    finalWaveClearAlertShownRef.current = false;
     lastTimeRef.current = performance.now();
   }, [selectedSubject]);
 
@@ -699,7 +704,9 @@ export default function App() {
           }
 
           // Check wave banner alert
-          if (currentWaveDef.isHugeWave && nextTime >= 1.0 && nextTime <= 4.0) {
+          if (currentWaveDef.isHugeWave && nextTime >= 1.0 && nextTime <= 4.0 && !waveAlertShownRef.current.has(currentWaveIdx)) {
+            // Tampilkan satu kali saja per wave; timeout 5 detik dikelola oleh effect.
+            waveAlertShownRef.current.add(currentWaveIdx);
             setWaveAlert(currentWaveDef.isFinalWave ? 'FINAL WAVE!' : 'GELOMBANG BESAR MENDEKAT!');
             if (!soundCooldownRef.current['alarm'] || soundCooldownRef.current['alarm'] <= 0) {
               soundManager.playHugeWave();
@@ -724,7 +731,9 @@ export default function App() {
                 recordLevelCompletion();
                 setGameState('VICTORY');
                 soundManager.playVictory();
-              } else {
+              } else if (!finalWaveClearAlertShownRef.current) {
+                // Pesan setelah Wave 5 selesai cukup muncul sekali, bukan setiap frame.
+                finalWaveClearAlertShownRef.current = true;
                 setWaveAlert(`JAWAB BENAR ${25 - quizCorrectRef.current} KUIS LAGI UNTUK MENANG!`);
               }
             }
