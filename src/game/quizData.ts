@@ -6,7 +6,10 @@ export type SubjectCategory =
   | 'body_parts'
   | 'school_items'
   | 'food'
-  | 'transportation';
+  | 'transportation'
+  | 'family'
+  | 'colors'
+  | 'professions';
 
 export interface QuizQuestion {
   id: string;
@@ -28,62 +31,16 @@ export interface SubjectMetadata {
 }
 
 export const SUBJECTS: SubjectMetadata[] = [
-  {
-    id: 'fruits',
-    name: 'Buah-buahan',
-    englishTitle: 'Fruits',
-    badge: 'Apel, Pisang, Jeruk, Nanas...',
-    description: 'Kosakata 25 nama buah-buahan dalam bahasa Inggris.'
-  },
-  {
-    id: 'clothing',
-    name: 'Pakaian',
-    englishTitle: 'Clothing',
-    badge: 'Baju, Celana, Sepatu, Topi...',
-    description: 'Kosakata 25 pakaian dan perlengkapan tubuh.'
-  },
-  {
-    id: 'animals',
-    name: 'Hewan',
-    englishTitle: 'Animals',
-    badge: 'Kucing, Gajah, Singa, Kelinci...',
-    description: 'Kosakata 25 aneka jenis satwa dan binatang.'
-  },
-  {
-    id: 'months',
-    name: 'Bulan',
-    englishTitle: 'Months of the Year',
-    badge: 'January, February, March...',
-    description: 'Nama 12 bulan dan 13 kosakata kalender & waktu.'
-  },
-  {
-    id: 'body_parts',
-    name: 'Anggota Tubuh',
-    englishTitle: 'Body Parts',
-    badge: 'Mata, Hidung, Tangan, Kaki...',
-    description: 'Nama 25 bagian dan panca indra tubuh manusia.'
-  },
-  {
-    id: 'school_items',
-    name: 'Benda di Sekolah',
-    englishTitle: 'School Objects',
-    badge: 'Buku, Pensil, Penghapus, Meja...',
-    description: '25 benda penting yang ada di kelas dan sekolah.'
-  },
-  {
-    id: 'food',
-    name: 'Makanan',
-    englishTitle: 'Food',
-    badge: 'Nasi, Roti, Telur, Keju, Sup...',
-    description: 'Kosakata 25 hidangan makanan dan minuman lezat.'
-  },
-  {
-    id: 'transportation',
-    name: 'Transportasi',
-    englishTitle: 'Transportation',
-    badge: 'Mobil, Kereta, Pesawat, Kapal...',
-    description: '25 alat dan kendaraan darat, laut, dan udara.'
-  }
+  { id: 'fruits', name: 'Buah-buahan', englishTitle: 'Fruits', badge: 'Apel, Pisang, Jeruk, Nanas...', description: 'Kosakata buah-buahan dalam bahasa Inggris.' },
+  { id: 'animals', name: 'Hewan', englishTitle: 'Animals', badge: 'Kucing, Gajah, Singa, Kelinci...', description: 'Kosakata aneka jenis hewan.' },
+  { id: 'school_items', name: 'Benda', englishTitle: 'Objects', badge: 'Buku, Pensil, Penghapus, Meja...', description: 'Kosakata benda sehari-hari dan benda di sekolah.' },
+  { id: 'clothing', name: 'Pakaian', englishTitle: 'Clothes', badge: 'Baju, Celana, Sepatu, Topi...', description: 'Kosakata pakaian dan perlengkapan tubuh.' },
+  { id: 'food', name: 'Makanan & Minuman', englishTitle: 'Food & Drinks', badge: 'Nasi, Roti, Susu, Air...', description: 'Kosakata makanan dan minuman.' },
+  { id: 'family', name: 'Keluarga', englishTitle: 'Family', badge: 'Ayah, Ibu, Saudara...', description: 'Kosakata anggota keluarga.' },
+  { id: 'body_parts', name: 'Anggota Tubuh', englishTitle: 'Body Parts', badge: 'Mata, Hidung, Tangan, Kaki...', description: 'Kosakata bagian tubuh manusia.' },
+  { id: 'colors', name: 'Warna', englishTitle: 'Colors', badge: 'Merah, Biru, Kuning...', description: 'Kosakata nama-nama warna.' },
+  { id: 'transportation', name: 'Transportasi', englishTitle: 'Transportation', badge: 'Mobil, Kereta, Pesawat, Kapal...', description: 'Kosakata alat transportasi.' },
+  { id: 'professions', name: 'Pekerjaan', englishTitle: 'Professions', badge: 'Guru, Dokter, Polisi...', description: 'Kosakata profesi dan pekerjaan.' }
 ];
 
 // Vocabulary Dictionary: Exactly 25 [Indonesian, English] pairs per category
@@ -277,6 +234,15 @@ export const VOCAB_DICTIONARY: Record<SubjectCategory, [string, string][]> = {
     ['Bubur', 'Porridge'],
     ['Biskuit', 'Biscuit']
   ],
+  family: [
+    ['Ayah', 'Father'], ['Ibu', 'Mother'], ['Orang Tua', 'Parents'], ['Saudara laki-laki', 'Brother'], ['Saudara perempuan', 'Sister'], ['Kakek', 'Grandfather'], ['Nenek', 'Grandmother'], ['Anak laki-laki', 'Son'], ['Anak perempuan', 'Daughter'], ['Paman', 'Uncle'], ['Bibi', 'Aunt'], ['Sepupu', 'Cousin'], ['Suami', 'Husband'], ['Istri', 'Wife'], ['Bayi', 'Baby'], ['Keluarga', 'Family'], ['Cucu laki-laki', 'Grandson'], ['Cucu perempuan', 'Granddaughter'], ['Ayah mertua', 'Father-in-law'], ['Ibu mertua', 'Mother-in-law'], ['Keponakan laki-laki', 'Nephew'], ['Keponakan perempuan', 'Niece'], ['Kakak', 'Older sibling'], ['Adik', 'Younger sibling'], ['Kerabat', 'Relative']
+  ],
+  colors: [
+    ['Merah', 'Red'], ['Biru', 'Blue'], ['Kuning', 'Yellow'], ['Hijau', 'Green'], ['Hitam', 'Black'], ['Putih', 'White'], ['Oranye', 'Orange'], ['Ungu', 'Purple'], ['Merah muda', 'Pink'], ['Cokelat', 'Brown'], ['Abu-abu', 'Gray'], ['Emas', 'Gold'], ['Perak', 'Silver'], ['Biru muda', 'Light blue'], ['Biru tua', 'Dark blue'], ['Hijau muda', 'Light green'], ['Hijau tua', 'Dark green'], ['Merah marun', 'Maroon'], ['Krem', 'Cream'], ['Krem muda', 'Beige'], ['Turkis', 'Turquoise'], ['Ungu muda', 'Lavender'], ['Merah tua', 'Dark red'], ['Warna-warni', 'Colorful'], ['Jingga', 'Amber']
+  ],
+  professions: [
+    ['Guru', 'Teacher'], ['Dokter', 'Doctor'], ['Perawat', 'Nurse'], ['Polisi', 'Police officer'], ['Pemadam kebakaran', 'Firefighter'], ['Petani', 'Farmer'], ['Nelayan', 'Fisherman'], ['Koki', 'Chef'], ['Pilot', 'Pilot'], ['Sopir', 'Driver'], ['Tentara', 'Soldier'], ['Penyanyi', 'Singer'], ['Penari', 'Dancer'], ['Pelukis', 'Painter'], ['Dokter gigi', 'Dentist'], ['Montir', 'Mechanic'], ['Penjahit', 'Tailor'], ['Pedagang', 'Trader'], ['Karyawan', 'Employee'], ['Atlet', 'Athlete'], ['Penulis', 'Writer'], ['Fotografer', 'Photographer'], ['Arsitek', 'Architect'], ['Programmer', 'Programmer'], ['Petugas pos', 'Postal worker']
+  ],
   transportation: [
     ['Mobil', 'Car'],
     ['Sepeda Motor', 'Motorcycle'],
@@ -308,14 +274,8 @@ export const VOCAB_DICTIONARY: Record<SubjectCategory, [string, string][]> = {
 
 // Shuffled deck of non-repeating questions per topic
 const quizDecks: Record<SubjectCategory, QuizQuestion[]> = {
-  fruits: [],
-  clothing: [],
-  animals: [],
-  months: [],
-  body_parts: [],
-  school_items: [],
-  food: [],
-  transportation: []
+  fruits: [], clothing: [], animals: [], months: [], body_parts: [],
+  school_items: [], food: [], transportation: [], family: [], colors: [], professions: []
 };
 
 // Current question counter per topic (1 to 25)
@@ -327,7 +287,10 @@ const questionCounters: Record<SubjectCategory, number> = {
   body_parts: 0,
   school_items: 0,
   food: 0,
-  transportation: 0
+  transportation: 0,
+  family: 0,
+  colors: 0,
+  professions: 0
 };
 
 /**

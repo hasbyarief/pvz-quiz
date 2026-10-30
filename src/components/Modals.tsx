@@ -13,6 +13,10 @@ interface ModalsProps {
   waveAlert: string | null;
   selectedSubject: SubjectCategory;
   onSelectSubject: (subject: SubjectCategory) => void;
+  highestUnlockedLevel: number;
+  completedLevels: number[];
+  onNextLevel: () => void;
+  onBackToMap: () => void;
   stats: {
     zombiesDefeated: number;
     sunCollected: number;
@@ -29,6 +33,10 @@ export const Modals: React.FC<ModalsProps> = ({
   waveAlert,
   selectedSubject,
   onSelectSubject,
+  highestUnlockedLevel,
+  completedLevels,
+  onNextLevel,
+  onBackToMap,
   stats
 }) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -51,6 +59,12 @@ export const Modals: React.FC<ModalsProps> = ({
         return <Utensils className="w-4 h-4 text-orange-400" />;
       case 'transportation':
         return <Car className="w-4 h-4 text-purple-400" />;
+      case 'family':
+        return <Smile className="w-4 h-4 text-pink-400" />;
+      case 'colors':
+        return <Sparkles className="w-4 h-4 text-fuchsia-400" />;
+      case 'professions':
+        return <GraduationCap className="w-4 h-4 text-yellow-400" />;
     }
   };
 
@@ -100,111 +114,47 @@ export const Modals: React.FC<ModalsProps> = ({
               Matahari jatuh dari langit secara berkala. Klik matahari dan jawab soal kuis kosakata bahasa Inggris dengan tepat untuk mengumpulkan energi matahari!
             </p>
 
-            {/* Subject Selector (DROPDOWN / EXPANDABLE LIST MODEL) */}
+            {/* ADVENTURE LEVEL MAP: level progression changes quiz topic only */}
             <div className="w-full text-left mb-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
-                  <GraduationCap className="w-3.5 h-3.5 text-emerald-400" />
-                  Pilih Topik Kosakata:
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-black text-emerald-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <GraduationCap className="w-4 h-4" /> Adventure Mode — Pilih Level
                 </span>
-                <span className="text-[11px] text-emerald-400 font-semibold">
-                  {isDropdownOpen ? '' : ''}
-                </span>
+                <span className="text-[10px] text-slate-400 font-bold">{completedLevels.length}/10 selesai</span>
               </div>
-
-              {/* Trigger Button: Displays the currently selected category */}
-              <button
-                type="button"
-                onClick={() => setIsDropdownOpen((prev) => !prev)}
-                className={`w-full flex items-center justify-between p-2.5 sm:p-3 rounded-2xl border-2 transition-all cursor-pointer shadow-lg text-left ${
-                  isDropdownOpen
-                    ? 'bg-slate-900 border-emerald-400 ring-2 ring-emerald-400/30 shadow-emerald-500/20'
-                    : 'bg-slate-900/90 border-slate-700 hover:border-emerald-500/80 hover:bg-slate-800/90 shadow-slate-950/40'
-                }`}
-              >
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="p-2 rounded-xl bg-slate-950 border border-slate-700 shrink-0 text-emerald-400">
-                    {getSubjectIcon(currentSubject.id)}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-black text-slate-100 uppercase tracking-tight">
-                        {currentSubject.name}
-                      </span>
-                      <span className="text-xs font-bold text-amber-400">
-                        ({currentSubject.englishTitle})
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                      {currentSubject.badge} • Kuis terjemahan kosakata
-                    </p>
-                  </div>
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 max-h-64 overflow-y-auto pr-1">
+                {SUBJECTS.map((subj, index) => {
+                  const level = index + 1;
+                  const unlocked = level <= highestUnlockedLevel;
+                  const completed = completedLevels.includes(level);
+                  const selected = selectedSubject === subj.id;
+                  return (
+                    <button key={subj.id} type="button" disabled={!unlocked}
+                      onClick={() => onSelectSubject(subj.id)}
+                      className={`relative min-h-[88px] p-2 rounded-xl border-2 text-left transition-all ${
+                        !unlocked ? 'bg-slate-950/80 border-slate-800 opacity-50 cursor-not-allowed' :
+                        selected ? 'bg-emerald-950 border-emerald-400 ring-2 ring-emerald-400/30' :
+                        completed ? 'bg-amber-950/40 border-amber-600/70 hover:border-amber-400' :
+                        'bg-slate-900 border-slate-700 hover:border-emerald-500'
+                      }`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] font-black text-slate-400">LEVEL {level}</span>
+                        {completed ? <CheckCircle className="w-4 h-4 text-amber-400" /> : unlocked ? getSubjectIcon(subj.id) : <ShieldAlert className="w-4 h-4 text-slate-500" />}
+                      </div>
+                      <div className="text-xs font-black text-white uppercase leading-tight">{subj.englishTitle}</div>
+                      <div className="text-[9px] text-slate-400 mt-1 leading-tight">{subj.name}</div>
+                      {selected && <span className="absolute bottom-1 right-1 text-[8px] font-black text-emerald-300">DIPILIH</span>}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-2 rounded-xl bg-slate-900/70 border border-slate-800 p-2.5">
+                <div className="flex items-center gap-2 mb-0.5">
+                  {getSubjectIcon(currentSubject.id)}
+                  <span className="text-xs font-black text-amber-300">LEVEL {SUBJECTS.findIndex((s) => s.id === selectedSubject) + 1} — {currentSubject.englishTitle}</span>
                 </div>
-
-                <div className="flex items-center gap-2 shrink-0 pl-2">
-                  <span className="text-[11px] font-bold text-emerald-400 bg-emerald-950/80 border border-emerald-600/50 px-2.5 py-1 rounded-full hidden sm:inline-block">
-                    {isDropdownOpen ? 'Tutup Daftar' : 'Ganti Topik'}
-                  </span>
-                  <div className="w-8 h-8 rounded-xl bg-slate-950/80 border border-slate-700 flex items-center justify-center text-slate-300">
-                    {isDropdownOpen ? (
-                      <ChevronUp className="w-4 h-4 text-emerald-400" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-slate-300" />
-                    )}
-                  </div>
-                </div>
-              </button>
-
-              {/* Collapsible List of Topics (revealed when clicked) */}
-              {isDropdownOpen && (
-                <div className="mt-2 w-full bg-slate-950 border-2 border-emerald-500/70 rounded-2xl p-2 shadow-2xl backdrop-blur-md grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-56 overflow-y-auto">
-                  {SUBJECTS.map((subj) => {
-                    const isSelected = selectedSubject === subj.id;
-                    return (
-                      <button
-                        key={subj.id}
-                        type="button"
-                        onClick={() => {
-                          onSelectSubject(subj.id);
-                          setIsDropdownOpen(false);
-                        }}
-                        className={`flex items-center justify-between p-2 rounded-xl border transition-all cursor-pointer text-left ${
-                          isSelected
-                            ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 ring-1 ring-emerald-400/50 shadow-md'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:bg-slate-800 hover:border-slate-600 hover:text-white'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="p-1.5 rounded-lg bg-slate-950 border border-slate-700 shrink-0">
-                            {getSubjectIcon(subj.id)}
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-xs font-black uppercase tracking-tight truncate">
-                                {subj.name}
-                              </span>
-                              <span className="text-[10px] font-bold text-amber-400 truncate">
-                                ({subj.englishTitle})
-                              </span>
-                            </div>
-                            <span className="text-[9px] text-slate-400 block truncate">
-                              {subj.badge}
-                            </span>
-                          </div>
-                        </div>
-
-                        {isSelected ? (
-                          <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0 ml-1.5" />
-                        ) : (
-                          <span className="text-[10px] text-slate-500 shrink-0 ml-1.5 group-hover:text-slate-300">
-                            Pilih
-                          </span>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                <p className="text-[10px] text-slate-400">{currentSubject.description} Soal diacak. Semua level menggunakan mekanik, zombie, tanaman, dan gelombang yang sama.</p>
+              </div>
             </div>
 
             {/* Plants Quick Showcase */}
@@ -228,7 +178,7 @@ export const Modals: React.FC<ModalsProps> = ({
             <div className="text-[11px] text-slate-400 mb-4 space-y-1 bg-slate-900/40 p-2.5 rounded-xl border border-slate-800 w-full text-left">
               <p><strong className="text-amber-300">• Ambil Matahari:</strong> Klik matahari yang jatuh dari langit, lalu pilih jawaban yang tepat untuk kuis!</p>
               <p><strong className="text-slate-200">• Tanam Pasukan:</strong> Klik kartu tanaman, lalu klik petak rumput kosong.</p>
-              <p><strong className="text-emerald-300">• Topik Soal:</strong> Topik kuis terkunci selama permainan berlangsung sesuai pilihan awal Anda.</p>
+              <p><strong className="text-emerald-300">• Adventure Mode:</strong> Selesaikan level untuk membuka topik kuis berikutnya. Mekanik permainan tetap sama di semua level.</p>
             </div>
 
             {/* Start Button */}
@@ -251,7 +201,7 @@ export const Modals: React.FC<ModalsProps> = ({
             {/* Celebration Sparkles Tag */}
             <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/60 text-amber-300 text-xs font-black uppercase tracking-widest mb-3 animate-pulse">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>PERAYAAN JUARA!</span>
+              <span>LEVEL {SUBJECTS.findIndex((s) => s.id === selectedSubject) + 1} COMPLETED!</span>
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             </div>
 
@@ -261,7 +211,7 @@ export const Modals: React.FC<ModalsProps> = ({
             </div>
 
             <h2 className="text-2xl sm:text-3xl font-black text-amber-300 uppercase tracking-tight mb-1">
-              Selamat, Anda Juara!
+              Level Berhasil Diselesaikan!
             </h2>
             <p className="text-xs sm:text-sm text-slate-300 mb-4">
               Luar biasa! Anda sukses menjawab <strong className="text-amber-300">25 soal kuis</strong> dan bertahan melewati <strong className="text-emerald-400">Gelombang ke-5</strong>!
@@ -303,15 +253,20 @@ export const Modals: React.FC<ModalsProps> = ({
               </div>
             </div>
 
-            {/* Play Again Button */}
-            <button
-              type="button"
-              onClick={onRestartGame}
-              className="flex items-center justify-center gap-2 w-full px-6 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-2xl shadow-lg shadow-amber-500/30 transition-all transform active:scale-95 cursor-pointer uppercase tracking-wider text-sm"
-            >
-              <RotateCcw className="w-5 h-5" />
-              <span>Main Lagi & Rayakan Kemenangan</span>
-            </button>
+            <div className="grid grid-cols-2 gap-2 w-full">
+              {SUBJECTS.findIndex((s) => s.id === selectedSubject) < SUBJECTS.length - 1 ? (
+                <button type="button" onClick={onNextLevel} className="flex items-center justify-center gap-2 px-3 py-3.5 bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-400 hover:to-green-500 text-slate-950 font-black rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-wide text-xs">
+                  <Play className="w-4 h-4 fill-current" /> NEXT LEVEL
+                </button>
+              ) : (
+                <button type="button" onClick={onBackToMap} className="flex items-center justify-center gap-2 px-3 py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-black rounded-xl shadow-lg transition-all active:scale-95 uppercase tracking-wide text-xs">
+                  <Trophy className="w-4 h-4" /> SELESAI!
+                </button>
+              )}
+              <button type="button" onClick={onBackToMap} className="flex items-center justify-center gap-2 px-3 py-3.5 bg-slate-700 hover:bg-slate-600 text-white font-black rounded-xl transition-all active:scale-95 uppercase tracking-wide text-xs">
+                <Award className="w-4 h-4" /> LEVEL MAP
+              </button>
+            </div>
           </div>
         </div>
       )}

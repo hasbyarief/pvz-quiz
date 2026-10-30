@@ -61,6 +61,14 @@ export default function App() {
 
   // Educational Quiz State (Dipilih di awal, terkunci saat bermain)
   const [selectedSubject, setSelectedSubject] = useState<SubjectCategory>('fruits');
+  const [highestUnlockedLevel, setHighestUnlockedLevel] = useState<number>(() => {
+    const saved = Number(localStorage.getItem('pvzQuizHighestLevel') || '1');
+    return Math.min(10, Math.max(1, Number.isFinite(saved) ? saved : 1));
+  });
+  const [completedLevels, setCompletedLevels] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem('pvzQuizCompletedLevels') || '[]').filter((n: unknown) => Number.isInteger(n) && Number(n) >= 1 && Number(n) <= 10); }
+    catch { return []; }
+  });
   const [activeQuiz, setActiveQuiz] = useState<QuizQuestion | null>(null);
   const [activeQuizSunId, setActiveQuizSunId] = useState<string | null>(null);
 
@@ -132,12 +140,12 @@ export default function App() {
   const finalWaveDynamicSpawnedRef = useRef<number>(0);
 
   // Sync state to refs on initialize
-  const resetGame = useCallback(() => {
+  const resetGame = useCallback((subjectOverride?: SubjectCategory) => {
     isOpeningQuizRef.current = false;
     setIsPaused(false);
     quizAnsweredRef.current = 0;
     quizCorrectRef.current = 0;
-    resetQuizDeck(selectedSubject);
+    resetQuizDeck(subjectOverride ?? selectedSubject);
     setSun(INITIAL_SUN);
     setSelectedPlant(null);
     setIsShovelActive(false);
@@ -200,6 +208,38 @@ export default function App() {
     const timeoutId = window.setTimeout(() => setWaveAlert(null), 5000);
     return () => window.clearTimeout(timeoutId);
   }, [waveAlert]);
+
+  const currentLevelNumber = () => SUBJECTS.findIndex((subject) => subject.id === selectedSubject) + 1;
+
+  const recordLevelCompletion = () => {
+    const level = currentLevelNumber();
+    const nextCompleted = Array.from(new Set([...completedLevels, level])).sort((a, b) => a - b);
+    const nextUnlocked = Math.min(10, Math.max(highestUnlockedLevel, level + 1));
+    setCompletedLevels(nextCompleted);
+    setHighestUnlockedLevel(nextUnlocked);
+    localStorage.setItem('pvzQuizCompletedLevels', JSON.stringify(nextCompleted));
+    localStorage.setItem('pvzQuizHighestLevel', String(nextUnlocked));
+  };
+
+  const handleNextLevel = () => {
+    const nextSubject = SUBJECTS[currentLevelNumber()];
+    if (!nextSubject) {
+      setGameState('READY');
+      return;
+    }
+    setSelectedSubject(nextSubject.id);
+    resetGame(nextSubject.id);
+    setGameState('PLAYING');
+    soundManager.startBgm();
+    if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  };
+
+  const handleBackToMap = () => {
+    setIsPaused(false);
+    setGameState('READY');
+  };
 
   const handleStartGame = () => {
     resetGame();
@@ -404,6 +444,7 @@ export default function App() {
     const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0;
 
     if (nextQuizCorrect >= 25 && hasClearedWave5) {
+      recordLevelCompletion();
       setGameState('VICTORY');
       soundManager.playVictory();
     }
@@ -680,6 +721,7 @@ export default function App() {
             } else {
               // Wave 5 is clear; the player still needs 25 correct answers.
               if (quizCorrectRef.current >= 25) {
+                recordLevelCompletion();
                 setGameState('VICTORY');
                 soundManager.playVictory();
               } else {
@@ -1136,6 +1178,10 @@ export default function App() {
           setSelectedSubject(subj);
           resetQuizDeck(subj);
         }}
+        highestUnlockedLevel={highestUnlockedLevel}
+        completedLevels={completedLevels}
+        onNextLevel={handleNextLevel}
+        onBackToMap={handleBackToMap}
         stats={stats}
       />
 
