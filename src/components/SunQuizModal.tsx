@@ -14,6 +14,7 @@ interface SunQuizModalProps {
 export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }) => {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState<boolean>(false);
+  const [timeLeft, setTimeLeft] = useState<number>(10);
 
   const subjectMeta = SUBJECTS.find((s) => s.id === question.subject) || SUBJECTS[0];
 
@@ -37,6 +38,34 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
       }, 2200);
     }
   };
+
+  // Hitung mundur 10 detik. Saat habis, jawaban otomatis dianggap salah.
+  useEffect(() => {
+    if (isAnswered) return;
+
+    if (timeLeft <= 0) {
+      setIsAnswered(true);
+      soundManager.playQuizWrong();
+      onAnswer(false);
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setTimeLeft((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [timeLeft, isAnswered, onAnswer]);
+
+  const timerColor =
+    timeLeft >= 6
+      ? 'bg-emerald-500 text-emerald-300 border-emerald-500/50'
+      : timeLeft >= 3
+        ? 'bg-amber-500 text-amber-300 border-amber-500/50'
+        : 'bg-rose-500 text-rose-300 border-rose-500/50';
+
+  const timerBarColor =
+    timeLeft >= 6 ? 'bg-emerald-400' : timeLeft >= 3 ? 'bg-amber-400' : 'bg-rose-500';
 
   // Keyboard shortcut listener (1, 2, 3, 4)
   useEffect(() => {
@@ -114,6 +143,22 @@ export const SunQuizModal: React.FC<SunQuizModalProps> = ({ question, onAnswer }
         <h3 className="text-xl sm:text-2xl font-black text-amber-200 text-center font-sans uppercase tracking-tight mb-2">
           Kuis Matahari!
         </h3>
+
+        {/* Countdown Timer */}
+        <div className="w-full mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-xs font-bold text-slate-300">Waktu menjawab</span>
+            <span className={`text-sm font-black font-mono tabular-nums ${timerColor.split(' ').slice(1).join(' ')}`}>
+              00:{String(timeLeft).padStart(2, '0')}
+            </span>
+          </div>
+          <div className="w-full h-2.5 rounded-full bg-slate-800 overflow-hidden border border-slate-700">
+            <div
+              className={`h-full rounded-full transition-all duration-300 ${timerBarColor}`}
+              style={{ width: `${(timeLeft / 10) * 100}%` }}
+            />
+          </div>
+        </div>
 
         {/* Question Box */}
         <div className="w-full bg-slate-950/70 border border-slate-800 rounded-2xl p-4 sm:p-5 mb-4 text-center">
