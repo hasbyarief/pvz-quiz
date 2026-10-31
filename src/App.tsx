@@ -127,6 +127,10 @@ export default function App() {
 
   // Internal loop timers
   const lastTimeRef = useRef<number>(performance.now());
+  const waveTimerRef = useRef<number>(0);
+  const uiSyncAccumulatorRef = useRef<number>(0);
+  const cooldownSyncAccumulatorRef = useRef<number>(0);
+  const lastMowersSavedRef = useRef<number>(5);
   const skySunTimerRef = useRef<number>(0);
   const skySunSpawnCountRef = useRef<number>(0);
   const subWaveSpawnedRef = useRef<Set<string>>(new Set());
@@ -186,6 +190,10 @@ export default function App() {
     setParticles([]);
 
     setCurrentWaveIdx(0);
+    waveTimerRef.current = 0;
+    uiSyncAccumulatorRef.current = 0;
+    cooldownSyncAccumulatorRef.current = 0;
+    lastMowersSavedRef.current = 5;
     setWaveTimer(0);
     setWaveAlert(null);
     setStats({
@@ -511,11 +519,19 @@ export default function App() {
     if (gameState !== 'PLAYING' || isPaused || activeQuiz !== null) return;
 
     let animId: number;
+    // Simulasi game tetap berjalan mengikuti requestAnimationFrame (hingga 60 FPS).
+    // Sinkronisasi objek ke React dipisahkan dan dibatasi agar UI tidak render
+    // seluruh papan pada setiap frame simulasi.
+    const isTouchDevice = window.matchMedia('(pointer: coarse)').matches;
+    const uiSyncInterval = isTouchDevice ? 1000 / 30 : 1000 / 60;
 
     const gameLoop = (now: number) => {
       // Calculate deltaTime in seconds, clamp to 0.1s
       const dt = Math.min((now - lastTimeRef.current) / 1000, 0.1);
       lastTimeRef.current = now;
+      uiSyncAccumulatorRef.current += dt;
+      cooldownSyncAccumulatorRef.current += dt;
+      let zombiesDefeatedThisFrame = 0;
 
       // Update Sound Cooldowns
       Object.keys(soundCooldownRef.current).forEach((k) => {
@@ -525,17 +541,21 @@ export default function App() {
       });
 
       // 1. UPDATE SEED CARD COOLDOWNS
-      setCooldowns((prev) => {
-        let changed = false;
-        const next = { ...prev };
-        (Object.keys(next) as PlantType[]).forEach((type) => {
-          if (next[type] > 0) {
-            next[type] = Math.max(0, next[type] - dt);
-            changed = true;
-          }
+      if (cooldownSyncAccumulatorRef.current >= 0.1) {
+        const cooldownDt = cooldownSyncAccumulatorRef.current;
+        cooldownSyncAccumulatorRef.current = 0;
+        setCooldowns((prev) => {
+          let changed = false;
+          const next = { ...prev };
+          (Object.keys(next) as PlantType[]).forEach((type) => {
+            if (next[type] > 0) {
+              next[type] = Math.max(0, next[type] - cooldownDt);
+              changed = true;
+            }
+          });
+          return changed ? next : prev;
         });
-        return changed ? next : prev;
-      });
+      }
 
       // 2. SPAWN SKY SUN
       const currentWaveDef = GAME_WAVES[currentWaveIdx];
@@ -598,8 +618,8 @@ export default function App() {
 
       // 4. WAVE PROGRESSION & SPAWNS
       if (currentWaveDef) {
-        setWaveTimer((prevTime) => {
-          const nextTime = prevTime + dt;
+        waveTimerRef.current += dt;
+        const nextTime = waveTimerRef.current;
 
           // Check subwaves to spawn
           currentWaveDef.subWaves.forEach((subWave, subIdx) => {
@@ -724,7 +744,7 @@ export default function App() {
               // Each wave gets its own timer. Without resetting it, the next
               // wave's scheduled sub-waves could all spawn immediately.
               setCurrentWaveIdx((prev) => prev + 1);
-              return 0;
+              waveTimerRef.current = 0;
             } else {
               // Wave 5 is clear; the player still needs 25 correct answers.
               if (quizCorrectRef.current >= 25) {
@@ -739,8 +759,6 @@ export default function App() {
             }
           }
 
-          return nextTime;
-        });
       }
 
       // 5. UPDATE PLANTS (SHOOTING, SUNFLOWER, CHERRY BOMB FUSE)
@@ -773,10 +791,7 @@ export default function App() {
 
               if (rowDiff <= 1 && colDiff <= 1.4) {
                 z.hp = 0;
-                setStats((prevStats) => ({
-                  ...prevStats,
-                  zombiesDefeated: prevStats.zombiesDefeated + 1
-                }));
+                zombiesDefeatedThisFrame += 1;
               }
             });
 
@@ -904,10 +919,7 @@ export default function App() {
             }
 
             if (zombie.hp <= 0) {
-              setStats((prevStats) => ({
-                ...prevStats,
-                zombiesDefeated: prevStats.zombiesDefeated + 1
-              }));
+              zombiesDefeatedThisFrame += 1;
             }
             break;
           }
@@ -1003,10 +1015,7 @@ export default function App() {
           // Obliterate any zombie in its path
           zombiesRef.current = zombiesRef.current.filter((z) => {
             if (z.row === mower.row && z.x <= nextX + 45) {
-              setStats((prevStats) => ({
-                ...prevStats,
-                zombiesDefeated: prevStats.zombiesDefeated + 1
-              }));
+              zombiesDefeatedThisFrame += 1;
               return false;
             }
             return true;
@@ -1020,20 +1029,36 @@ export default function App() {
         return mower;
       });
 
-      setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      if (lastMowersSavedRef.current !== savedMowersCount) {
+        lastMowersSavedRef.current = savedMowersCount;
+        setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      }
 
       // 9. UPDATE PARTICLES
       particlesRef.current = particlesRef.current
         .map((pt) => ({ ...pt, lifetime: pt.lifetime - dt }))
         .filter((pt) => pt.lifetime > 0);
 
-      // SYNC ALL REFS TO REACT STATE FOR UI RENDERING
-      setPlants([...plantsRef.current]);
-      setZombies([...zombiesRef.current]);
-      setProjectiles([...projectilesRef.current]);
-      setSuns([...sunsRef.current]);
-      setLawnMowers([...mowersRef.current]);
-      setParticles([...particlesRef.current]);
+      // Commit perubahan statistik sekaligus, bukan satu render untuk setiap zombie.
+      if (zombiesDefeatedThisFrame > 0) {
+        setStats((prev) => ({
+          ...prev,
+          zombiesDefeated: prev.zombiesDefeated + zombiesDefeatedThisFrame
+        }));
+      }
+
+      // SYNC REFS TO REACT STATE hanya pada interval visual yang ditentukan.
+      // Simulasi tetap berjalan setiap frame; hanya pembaruan UI yang dibatasi.
+      if (uiSyncAccumulatorRef.current >= uiSyncInterval) {
+        uiSyncAccumulatorRef.current = 0;
+        setWaveTimer(waveTimerRef.current);
+        setPlants([...plantsRef.current]);
+        setZombies([...zombiesRef.current]);
+        setProjectiles([...projectilesRef.current]);
+        setSuns([...sunsRef.current]);
+        setLawnMowers([...mowersRef.current]);
+        setParticles([...particlesRef.current]);
+      }
 
       // Request next frame
       animId = requestAnimationFrame(gameLoop);
