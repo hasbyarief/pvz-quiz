@@ -746,7 +746,7 @@ export default function App() {
             subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
           );
 
-          if (allSubWavesSpawned && zombiesRef.current.length === 0 && pendingZombiesRef.current.length === 0) {
+          if (allSubWavesSpawned && zombiesRef.current.length === 0) {
             if (currentWaveIdx < GAME_WAVES.length - 1) {
               // Each wave gets its own timer. Without resetting it, the next
               // wave's scheduled sub-waves could all spawn immediately.
