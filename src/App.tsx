@@ -738,6 +738,7 @@ export default function App() {
               // Each wave gets its own timer. Without resetting it, the next
               // wave's scheduled sub-waves could all spawn immediately.
               waveTimerRef.current = 0;
+              waveUiAccumulatorRef.current = 0;
               setWaveTimer(0);
               setCurrentWaveIdx((prev) => prev + 1);
             } else {
