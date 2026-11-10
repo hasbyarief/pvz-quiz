@@ -100,6 +100,7 @@ export default function App() {
   const [particles, setParticles] = useState<ParticleEffect[]>([]);
 
   // Simulation Refs for single-source-of-truth delta-time loop
+  const ghostCursorActiveRef = useRef<boolean>(false);
   const plantsRef = useRef<PlantInstance[]>([]);
   const zombiesRef = useRef<ZombieInstance[]>([]);
   const projectilesRef = useRef<ProjectileInstance[]>([]);
@@ -127,6 +128,11 @@ export default function App() {
 
   // Internal loop timers
   const lastTimeRef = useRef<number>(performance.now());
+  // Simulation remains RAF-driven; React snapshots are published at 30 FPS.
+  const renderAccumulatorRef = useRef<number>(0);
+  const cooldownUiAccumulatorRef = useRef<number>(0);
+  const waveUiAccumulatorRef = useRef<number>(0);
+  const waveTimerRef = useRef<number>(0);
   const skySunTimerRef = useRef<number>(0);
   const skySunSpawnCountRef = useRef<number>(0);
   const subWaveSpawnedRef = useRef<Set<string>>(new Set());
@@ -138,6 +144,7 @@ export default function App() {
   const finalWaveElapsedRef = useRef<number>(0);
   const finalWaveSpawnAccumulatorRef = useRef<number>(0);
   const finalWaveDynamicSpawnedRef = useRef<number>(0);
+  const savedMowersUiRef = useRef<number>(5);
   // Mencegah banner wave yang sama dipicu berulang pada setiap frame.
   const waveAlertShownRef = useRef<Set<number>>(new Set());
   const finalWaveClearAlertShownRef = useRef<boolean>(false);
@@ -152,6 +159,7 @@ export default function App() {
     setSun(INITIAL_SUN);
     setSelectedPlant(null);
     setIsShovelActive(false);
+    ghostCursorActiveRef.current = false;
     setActiveQuiz(null);
     setActiveQuizSunId(null);
     setCooldowns({
@@ -186,6 +194,10 @@ export default function App() {
     setParticles([]);
 
     setCurrentWaveIdx(0);
+    waveTimerRef.current = 0;
+    renderAccumulatorRef.current = 0;
+    cooldownUiAccumulatorRef.current = 0;
+    waveUiAccumulatorRef.current = 0;
     setWaveTimer(0);
     setWaveAlert(null);
     setStats({
@@ -202,6 +214,7 @@ export default function App() {
     finalWaveElapsedRef.current = 0;
     finalWaveSpawnAccumulatorRef.current = 0;
     finalWaveDynamicSpawnedRef.current = 0;
+    savedMowersUiRef.current = 5;
     waveAlertShownRef.current.clear();
     finalWaveClearAlertShownRef.current = false;
     lastTimeRef.current = performance.now();
@@ -271,11 +284,13 @@ export default function App() {
       if (e.key === 'Escape') {
         setSelectedPlant(null);
         setIsShovelActive(false);
+        ghostCursorActiveRef.current = false;
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      // Avoid an App render on every desktop mouse event when the ghost cursor is hidden.
+      if (ghostCursorActiveRef.current) setMousePos({ x: e.clientX, y: e.clientY });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -325,18 +340,27 @@ export default function App() {
     e.preventDefault();
     setSelectedPlant(null);
     setIsShovelActive(false);
+    ghostCursorActiveRef.current = false;
   };
 
   // Plant selection handler
   const handleSelectPlant = (type: PlantType) => {
     setIsShovelActive(false);
-    setSelectedPlant((prev) => (prev === type ? null : type));
+    setSelectedPlant((prev) => {
+      const next = prev === type ? null : type;
+      ghostCursorActiveRef.current = next !== null;
+      return next;
+    });
   };
 
   // Shovel toggle handler
   const handleToggleShovel = () => {
     setSelectedPlant(null);
-    setIsShovelActive((prev) => !prev);
+    setIsShovelActive((prev) => {
+      const next = !prev;
+      ghostCursorActiveRef.current = next;
+      return next;
+    });
   };
 
   // Sound mute toggle
@@ -467,6 +491,7 @@ export default function App() {
         plantsRef.current.splice(existingIndex, 1);
         setPlants([...plantsRef.current]);
         setIsShovelActive(false);
+        ghostCursorActiveRef.current = false;
       }
       return;
     }
@@ -499,6 +524,7 @@ export default function App() {
         plantsRef.current.push(newPlant);
         setPlants([...plantsRef.current]);
         setSelectedPlant(null); // Ghost cursor disappears upon placement!
+        ghostCursorActiveRef.current = false;
       }
     }
   };
@@ -524,18 +550,23 @@ export default function App() {
         }
       });
 
-      // 1. UPDATE SEED CARD COOLDOWNS
-      setCooldowns((prev) => {
+      // 1. UPDATE SEED CARD COOLDOWNS (10 UI updates/sec)
+      cooldownUiAccumulatorRef.current += dt;
+      if (cooldownUiAccumulatorRef.current >= 0.1) {
+        const cooldownDt = cooldownUiAccumulatorRef.current;
+        cooldownUiAccumulatorRef.current = 0;
+        setCooldowns((prev) => {
         let changed = false;
         const next = { ...prev };
         (Object.keys(next) as PlantType[]).forEach((type) => {
           if (next[type] > 0) {
-            next[type] = Math.max(0, next[type] - dt);
+            next[type] = Math.max(0, next[type] - cooldownDt);
             changed = true;
           }
         });
-        return changed ? next : prev;
-      });
+          return changed ? next : prev;
+        });
+      }
 
       // 2. SPAWN SKY SUN
       const currentWaveDef = GAME_WAVES[currentWaveIdx];
@@ -598,8 +629,8 @@ export default function App() {
 
       // 4. WAVE PROGRESSION & SPAWNS
       if (currentWaveDef) {
-        setWaveTimer((prevTime) => {
-          const nextTime = prevTime + dt;
+        const nextTime = waveTimerRef.current + dt;
+        waveTimerRef.current = nextTime;
 
           // Check subwaves to spawn
           currentWaveDef.subWaves.forEach((subWave, subIdx) => {
@@ -613,11 +644,8 @@ export default function App() {
                 const isCone = zDef.type === 'conehead';
                 const isBucket = zDef.type === 'buckethead';
                 const isFlag = zDef.type === 'flag';
-
-                // Ketahanan mengikuti PvZ original: tubuh 270 HP, helm/ember terpisah.
                 const hp = ZOMBIE_BODY_HP;
                 const speed = isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL;
-
                 zombiesRef.current.push({
                   id: `zombie-${Date.now()}-${zIdx}-${Math.random()}`,
                   type: zDef.type,
@@ -677,7 +705,6 @@ export default function App() {
                 const isBucket = type === 'buckethead';
                 const isFlag = type === 'flag';
                 const hp = ZOMBIE_BODY_HP;
-
                 zombiesRef.current.push({
                   id: `final-overtime-${Date.now()}-${dynamicIndex}-${Math.random()}`,
                   type,
@@ -696,7 +723,7 @@ export default function App() {
               }
 
               finalWaveDynamicSpawnedRef.current += batchSize;
-              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+              if (batchSize > 0 && (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0)) {
                 soundManager.playZombieGroan();
                 soundCooldownRef.current['groan'] = 8.0;
               }
@@ -723,8 +750,10 @@ export default function App() {
             if (currentWaveIdx < GAME_WAVES.length - 1) {
               // Each wave gets its own timer. Without resetting it, the next
               // wave's scheduled sub-waves could all spawn immediately.
+              waveTimerRef.current = 0;
+              waveUiAccumulatorRef.current = 0;
+              setWaveTimer(0);
               setCurrentWaveIdx((prev) => prev + 1);
-              return 0;
             } else {
               // Wave 5 is clear; the player still needs 25 correct answers.
               if (quizCorrectRef.current >= 25) {
@@ -739,8 +768,11 @@ export default function App() {
             }
           }
 
-          return nextTime;
-        });
+          waveUiAccumulatorRef.current += dt;
+          if (waveUiAccumulatorRef.current >= 0.25) {
+            waveUiAccumulatorRef.current = 0;
+            setWaveTimer(nextTime);
+          }
       }
 
       // 5. UPDATE PLANTS (SHOOTING, SUNFLOWER, CHERRY BOMB FUSE)
@@ -1020,20 +1052,27 @@ export default function App() {
         return mower;
       });
 
-      setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      if (savedMowersCount !== savedMowersUiRef.current) {
+        savedMowersUiRef.current = savedMowersCount;
+        setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      }
 
       // 9. UPDATE PARTICLES
       particlesRef.current = particlesRef.current
         .map((pt) => ({ ...pt, lifetime: pt.lifetime - dt }))
         .filter((pt) => pt.lifetime > 0);
 
-      // SYNC ALL REFS TO REACT STATE FOR UI RENDERING
-      setPlants([...plantsRef.current]);
-      setZombies([...zombiesRef.current]);
-      setProjectiles([...projectilesRef.current]);
-      setSuns([...sunsRef.current]);
-      setLawnMowers([...mowersRef.current]);
-      setParticles([...particlesRef.current]);
+      // Publish snapshots at 30 FPS; simulation and collision checks still run every RAF.
+      renderAccumulatorRef.current += dt;
+      if (renderAccumulatorRef.current >= 1 / 30) {
+        renderAccumulatorRef.current = 0;
+        setPlants([...plantsRef.current]);
+        setZombies([...zombiesRef.current]);
+        setProjectiles([...projectilesRef.current]);
+        setSuns([...sunsRef.current]);
+        setLawnMowers([...mowersRef.current]);
+        setParticles([...particlesRef.current]);
+      }
 
       // Request next frame
       animId = requestAnimationFrame(gameLoop);

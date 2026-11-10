@@ -11,7 +11,7 @@ interface ZombieSVGProps {
   className?: string;
 }
 
-export const ZombieSVG: React.FC<ZombieSVGProps> = ({
+const ZombieSVGComponent: React.FC<ZombieSVGProps> = ({
   type,
   isEating = false,
   isSlowed = false,
@@ -33,9 +33,7 @@ export const ZombieSVG: React.FC<ZombieSVGProps> = ({
       viewBox="0 -24 110 154"
       className={`w-full h-full ${className}`}
       xmlns="http://www.w3.org/2000/svg"
-      style={{
-        filter: isSlowed ? 'drop-shadow(0 0 8px #38bdf8) hue-rotate(180deg) saturate(1.4)' : undefined
-      }}
+      style={{ opacity: isSlowed ? 0.88 : 1 }}
     >
       <defs>
         {/* Zombie Skin Gradient */}
@@ -249,3 +247,6 @@ export const ZombieSVG: React.FC<ZombieSVGProps> = ({
     </svg>
   );
 };
+
+// The parent moves the wrapper with transforms; avoid rebuilding this detailed SVG per frame.
+export const ZombieSVG = React.memo(ZombieSVGComponent);

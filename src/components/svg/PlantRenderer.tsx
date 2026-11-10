@@ -17,7 +17,7 @@ interface PlantRendererProps {
   className?: string;
 }
 
-export const PlantRenderer: React.FC<PlantRendererProps> = ({
+const PlantRendererComponent: React.FC<PlantRendererProps> = ({
   type,
   hp,
   maxHp,
@@ -43,3 +43,6 @@ export const PlantRenderer: React.FC<PlantRendererProps> = ({
       return null;
   }
 };
+
+// Plants only need to rerender when their visible state changes.
+export const PlantRenderer = React.memo(PlantRendererComponent);
