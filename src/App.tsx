@@ -652,7 +652,7 @@ export default function App() {
                 });
               });
 
-              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0)) {
+              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
                 soundManager.playZombieGroan();
                 soundCooldownRef.current['groan'] = 8.0;
               }
