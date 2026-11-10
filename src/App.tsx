@@ -685,7 +685,7 @@ export default function App() {
               }
 
               finalWaveDynamicSpawnedRef.current += batchSize;
-              if (batchSize > 0 && (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+              if (batchSize > 0 && (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0)) {
                 soundManager.playZombieGroan();
                 soundCooldownRef.current['groan'] = 8.0;
               }
