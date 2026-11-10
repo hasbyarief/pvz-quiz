@@ -127,6 +127,11 @@ export default function App() {
 
   // Internal loop timers
   const lastTimeRef = useRef<number>(performance.now());
+  // Simulation remains RAF-driven; React snapshots are published at 30 FPS.
+  const renderAccumulatorRef = useRef<number>(0);
+  const cooldownUiAccumulatorRef = useRef<number>(0);
+  const waveUiAccumulatorRef = useRef<number>(0);
+  const waveTimerRef = useRef<number>(0);
   const skySunTimerRef = useRef<number>(0);
   const skySunSpawnCountRef = useRef<number>(0);
   const subWaveSpawnedRef = useRef<Set<string>>(new Set());
@@ -186,6 +191,10 @@ export default function App() {
     setParticles([]);
 
     setCurrentWaveIdx(0);
+    waveTimerRef.current = 0;
+    renderAccumulatorRef.current = 0;
+    cooldownUiAccumulatorRef.current = 0;
+    waveUiAccumulatorRef.current = 0;
     setWaveTimer(0);
     setWaveAlert(null);
     setStats({
@@ -524,18 +533,23 @@ export default function App() {
         }
       });
 
-      // 1. UPDATE SEED CARD COOLDOWNS
-      setCooldowns((prev) => {
+      // 1. UPDATE SEED CARD COOLDOWNS (10 UI updates/sec)
+      cooldownUiAccumulatorRef.current += dt;
+      if (cooldownUiAccumulatorRef.current >= 0.1) {
+        const cooldownDt = cooldownUiAccumulatorRef.current;
+        cooldownUiAccumulatorRef.current = 0;
+        setCooldowns((prev) => {
         let changed = false;
         const next = { ...prev };
         (Object.keys(next) as PlantType[]).forEach((type) => {
           if (next[type] > 0) {
-            next[type] = Math.max(0, next[type] - dt);
+            next[type] = Math.max(0, next[type] - cooldownDt);
             changed = true;
           }
         });
-        return changed ? next : prev;
-      });
+          return changed ? next : prev;
+        });
+      }
 
       // 2. SPAWN SKY SUN
       const currentWaveDef = GAME_WAVES[currentWaveIdx];
@@ -598,8 +612,8 @@ export default function App() {
 
       // 4. WAVE PROGRESSION & SPAWNS
       if (currentWaveDef) {
-        setWaveTimer((prevTime) => {
-          const nextTime = prevTime + dt;
+        const nextTime = waveTimerRef.current + dt;
+        waveTimerRef.current = nextTime;
 
           // Check subwaves to spawn
           currentWaveDef.subWaves.forEach((subWave, subIdx) => {
@@ -739,8 +753,11 @@ export default function App() {
             }
           }
 
-          return nextTime;
-        });
+          waveUiAccumulatorRef.current += dt;
+          if (waveUiAccumulatorRef.current >= 0.25) {
+            waveUiAccumulatorRef.current = 0;
+            setWaveTimer(nextTime);
+          }
       }
 
       // 5. UPDATE PLANTS (SHOOTING, SUNFLOWER, CHERRY BOMB FUSE)
@@ -1027,13 +1044,17 @@ export default function App() {
         .map((pt) => ({ ...pt, lifetime: pt.lifetime - dt }))
         .filter((pt) => pt.lifetime > 0);
 
-      // SYNC ALL REFS TO REACT STATE FOR UI RENDERING
-      setPlants([...plantsRef.current]);
-      setZombies([...zombiesRef.current]);
-      setProjectiles([...projectilesRef.current]);
-      setSuns([...sunsRef.current]);
-      setLawnMowers([...mowersRef.current]);
-      setParticles([...particlesRef.current]);
+      // Publish snapshots at 30 FPS; simulation and collision checks still run every RAF.
+      renderAccumulatorRef.current += dt;
+      if (renderAccumulatorRef.current >= 1 / 30) {
+        renderAccumulatorRef.current = 0;
+        setPlants([...plantsRef.current]);
+        setZombies([...zombiesRef.current]);
+        setProjectiles([...projectilesRef.current]);
+        setSuns([...sunsRef.current]);
+        setLawnMowers([...mowersRef.current]);
+        setParticles([...particlesRef.current]);
+      }
 
       // Request next frame
       animId = requestAnimationFrame(gameLoop);
