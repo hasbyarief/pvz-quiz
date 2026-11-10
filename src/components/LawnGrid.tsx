@@ -267,6 +267,7 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
               isSlowed={zombie.slowTimer > 0}
               coneHp={zombie.coneHp}
               bucketHp={zombie.bucketHp}
+              animTime={zombie.animTime}
             />
           </div>
         );
