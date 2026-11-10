@@ -23,9 +23,8 @@ import { PlantRenderer } from './svg/PlantRenderer';
 import { ZombieSVG } from './svg/ZombieSVG';
 import { LawnMowerSVG } from './svg/LawnMowerSVG';
 import { SunSVG } from './svg/SunSVG';
-import { ProjectileSVG } from './svg/ProjectilesSVG';
 import { ShovelSVG } from './svg/ShovelSVG';
-import { ExplosionEffectSVG } from './svg/ExplosionEffectSVG';
+import { MovingEffectsCanvas } from './MovingEffectsCanvas';
 
 interface LawnGridProps {
   plants: PlantInstance[];
@@ -274,87 +273,8 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
         );
       })}
 
-      {/* 5. PROJECTILES (PEAS & ICE PEAS) */}
-      {projectiles.map((proj) => {
-        const y = proj.row * CELL_HEIGHT + CELL_HEIGHT * 0.28;
-        return (
-          <div
-            key={proj.id}
-            className="absolute z-25 pointer-events-none"
-            style={{
-              left: proj.x,
-              top: y,
-              width: 32,
-              height: 32
-            }}
-          >
-            <ProjectileSVG type={proj.type} />
-          </div>
-        );
-      })}
-
-      {/* 6. PARTICLES & VISUAL EFFECTS */}
-      {particles.map((pt) => {
-        const progress = 1 - pt.lifetime / pt.maxLifetime;
-
-        if (pt.type === 'explosion') {
-          return (
-            <div
-              key={pt.id}
-              className="absolute z-35 pointer-events-none -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: pt.x,
-                top: pt.y,
-                width: 260,
-                height: 260
-              }}
-            >
-              <ExplosionEffectSVG progress={progress} />
-            </div>
-          );
-        }
-
-        if (pt.type === 'sunText') {
-          return (
-            <div
-              key={pt.id}
-              className="absolute z-40 pointer-events-none -translate-x-1/2 font-black text-amber-300 font-mono text-xl drop-shadow-md select-none transition-all"
-              style={{
-                left: pt.x,
-                top: pt.y - progress * 40,
-                opacity: 1 - progress
-              }}
-            >
-              {pt.text || '+25'}
-            </div>
-          );
-        }
-
-        if (pt.type === 'splat' || pt.type === 'frost') {
-          return (
-            <div
-              key={pt.id}
-              className="absolute z-30 pointer-events-none -translate-x-1/2 -translate-y-1/2"
-              style={{
-                left: pt.x,
-                top: pt.y,
-                width: 28,
-                height: 28,
-                opacity: 1 - progress,
-                transform: `scale(${1 + progress * 0.8})`
-              }}
-            >
-              <div
-                className={`w-full h-full rounded-full ${
-                  pt.type === 'frost' ? 'bg-cyan-300 blur-[1px]' : 'bg-emerald-400'
-                }`}
-              />
-            </div>
-          );
-        }
-
-        return null;
-      })}
+      {/* 5-6. Moving effects are painted together on one canvas layer. */}
+      <MovingEffectsCanvas projectiles={projectiles} particles={particles} />
 
       {/* 7. SUNS (HIGH-RESPONSIVENESS CLICK & TAP TARGET) */}
       {suns.map((sun) => {
