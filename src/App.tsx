@@ -143,6 +143,9 @@ export default function App() {
   const finalWaveElapsedRef = useRef<number>(0);
   const finalWaveSpawnAccumulatorRef = useRef<number>(0);
   const finalWaveDynamicSpawnedRef = useRef<number>(0);
+  // Keep high-cost zombie SVGs limited on low-end devices; remaining spawns wait in a lightweight queue.
+  const pendingZombiesRef = useRef<Array<{ type: ZombieType; row: number; xOffset: number; id: string }>>([]);
+  const savedMowersUiRef = useRef<number>(5);
   // Mencegah banner wave yang sama dipicu berulang pada setiap frame.
   const waveAlertShownRef = useRef<Set<number>>(new Set());
   const finalWaveClearAlertShownRef = useRef<boolean>(false);
@@ -211,6 +214,8 @@ export default function App() {
     finalWaveElapsedRef.current = 0;
     finalWaveSpawnAccumulatorRef.current = 0;
     finalWaveDynamicSpawnedRef.current = 0;
+    pendingZombiesRef.current = [];
+    savedMowersUiRef.current = 5;
     waveAlertShownRef.current.clear();
     finalWaveClearAlertShownRef.current = false;
     lastTimeRef.current = performance.now();
@@ -455,7 +460,7 @@ export default function App() {
     const allSubWavesSpawned = currentWaveDef && currentWaveDef.subWaves.every((_, subIdx) =>
       subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
     );
-    const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0;
+    const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0 && pendingZombiesRef.current.length === 0;
 
     if (nextQuizCorrect >= 25 && hasClearedWave5) {
       recordLevelCompletion();
@@ -632,20 +637,11 @@ export default function App() {
                 const hp = ZOMBIE_BODY_HP;
                 const speed = isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL;
 
-                zombiesRef.current.push({
+                pendingZombiesRef.current.push({
                   id: `zombie-${Date.now()}-${zIdx}-${Math.random()}`,
                   type: zDef.type,
                   row: assignedRow,
-                  x: ZOMBIE_SPAWN_X + zIdx * 35,
-                  hp,
-                  maxHp: hp,
-                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
-                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
-                  speed,
-                  isEating: false,
-                  eatingTargetId: null,
-                  slowTimer: 0,
-                  animTime: Math.random() * 5
+                  xOffset: zIdx * 35
                 });
               });
 
@@ -692,20 +688,11 @@ export default function App() {
                 const isFlag = type === 'flag';
                 const hp = ZOMBIE_BODY_HP;
 
-                zombiesRef.current.push({
+                pendingZombiesRef.current.push({
                   id: `final-overtime-${Date.now()}-${dynamicIndex}-${Math.random()}`,
                   type,
                   row,
-                  x: ZOMBIE_SPAWN_X + i * 34,
-                  hp,
-                  maxHp: hp,
-                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
-                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
-                  speed: isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL,
-                  isEating: false,
-                  eatingTargetId: null,
-                  slowTimer: 0,
-                  animTime: Math.random() * 5
+                  xOffset: i * 34
                 });
               }
 
@@ -715,6 +702,31 @@ export default function App() {
                 soundCooldownRef.current['groan'] = 8.0;
               }
             }
+          }
+
+          // Drain the spawn queue gradually. A maximum of 10 detailed zombie SVGs
+          // are alive at once; scheduled and overtime enemies are retained in order.
+          while (zombiesRef.current.length < 10 && pendingZombiesRef.current.length > 0) {
+            const pending = pendingZombiesRef.current.shift()!;
+            const isCone = pending.type === 'conehead';
+            const isBucket = pending.type === 'buckethead';
+            const isFlag = pending.type === 'flag';
+            const hp = ZOMBIE_BODY_HP;
+            zombiesRef.current.push({
+              id: pending.id,
+              type: pending.type,
+              row: pending.row,
+              x: ZOMBIE_SPAWN_X + pending.xOffset,
+              hp,
+              maxHp: hp,
+              coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
+              bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
+              speed: isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL,
+              isEating: false,
+              eatingTargetId: null,
+              slowTimer: 0,
+              animTime: Math.random() * 5
+            });
           }
 
           // Check wave banner alert
@@ -733,12 +745,13 @@ export default function App() {
             subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
           );
 
-          if (allSubWavesSpawned && zombiesRef.current.length === 0) {
+          if (allSubWavesSpawned && zombiesRef.current.length === 0 && pendingZombiesRef.current.length === 0) {
             if (currentWaveIdx < GAME_WAVES.length - 1) {
               // Each wave gets its own timer. Without resetting it, the next
               // wave's scheduled sub-waves could all spawn immediately.
+              waveTimerRef.current = 0;
+              setWaveTimer(0);
               setCurrentWaveIdx((prev) => prev + 1);
-              return 0;
             } else {
               // Wave 5 is clear; the player still needs 25 correct answers.
               if (quizCorrectRef.current >= 25) {
@@ -1037,7 +1050,10 @@ export default function App() {
         return mower;
       });
 
-      setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      if (savedMowersCount !== savedMowersUiRef.current) {
+        savedMowersUiRef.current = savedMowersCount;
+        setStats((prev) => ({ ...prev, lawnMowersSaved: savedMowersCount }));
+      }
 
       // 9. UPDATE PARTICLES
       particlesRef.current = particlesRef.current
