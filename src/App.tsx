@@ -100,6 +100,7 @@ export default function App() {
   const [particles, setParticles] = useState<ParticleEffect[]>([]);
 
   // Simulation Refs for single-source-of-truth delta-time loop
+  const ghostCursorActiveRef = useRef<boolean>(false);
   const plantsRef = useRef<PlantInstance[]>([]);
   const zombiesRef = useRef<ZombieInstance[]>([]);
   const projectilesRef = useRef<ProjectileInstance[]>([]);
@@ -160,6 +161,7 @@ export default function App() {
     setSun(INITIAL_SUN);
     setSelectedPlant(null);
     setIsShovelActive(false);
+    ghostCursorActiveRef.current = false;
     setActiveQuiz(null);
     setActiveQuizSunId(null);
     setCooldowns({
@@ -285,11 +287,13 @@ export default function App() {
       if (e.key === 'Escape') {
         setSelectedPlant(null);
         setIsShovelActive(false);
+        ghostCursorActiveRef.current = false;
       }
     };
 
     const handleMouseMove = (e: MouseEvent) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
+      // Avoid an App render on every desktop mouse event when the ghost cursor is hidden.
+      if (ghostCursorActiveRef.current) setMousePos({ x: e.clientX, y: e.clientY });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -339,18 +343,27 @@ export default function App() {
     e.preventDefault();
     setSelectedPlant(null);
     setIsShovelActive(false);
+    ghostCursorActiveRef.current = false;
   };
 
   // Plant selection handler
   const handleSelectPlant = (type: PlantType) => {
     setIsShovelActive(false);
-    setSelectedPlant((prev) => (prev === type ? null : type));
+    setSelectedPlant((prev) => {
+      const next = prev === type ? null : type;
+      ghostCursorActiveRef.current = next !== null;
+      return next;
+    });
   };
 
   // Shovel toggle handler
   const handleToggleShovel = () => {
     setSelectedPlant(null);
-    setIsShovelActive((prev) => !prev);
+    setIsShovelActive((prev) => {
+      const next = !prev;
+      ghostCursorActiveRef.current = next;
+      return next;
+    });
   };
 
   // Sound mute toggle
@@ -481,6 +494,7 @@ export default function App() {
         plantsRef.current.splice(existingIndex, 1);
         setPlants([...plantsRef.current]);
         setIsShovelActive(false);
+        ghostCursorActiveRef.current = false;
       }
       return;
     }
@@ -513,6 +527,7 @@ export default function App() {
         plantsRef.current.push(newPlant);
         setPlants([...plantsRef.current]);
         setSelectedPlant(null); // Ghost cursor disappears upon placement!
+        ghostCursorActiveRef.current = false;
       }
     }
   };
