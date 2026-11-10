@@ -144,8 +144,6 @@ export default function App() {
   const finalWaveElapsedRef = useRef<number>(0);
   const finalWaveSpawnAccumulatorRef = useRef<number>(0);
   const finalWaveDynamicSpawnedRef = useRef<number>(0);
-  // Keep high-cost zombie SVGs limited on low-end devices; remaining spawns wait in a lightweight queue.
-  const pendingZombiesRef = useRef<Array<{ type: ZombieType; row: number; xOffset: number; id: string }>>([]);
   const savedMowersUiRef = useRef<number>(5);
   // Mencegah banner wave yang sama dipicu berulang pada setiap frame.
   const waveAlertShownRef = useRef<Set<number>>(new Set());
@@ -216,7 +214,6 @@ export default function App() {
     finalWaveElapsedRef.current = 0;
     finalWaveSpawnAccumulatorRef.current = 0;
     finalWaveDynamicSpawnedRef.current = 0;
-    pendingZombiesRef.current = [];
     savedMowersUiRef.current = 5;
     waveAlertShownRef.current.clear();
     finalWaveClearAlertShownRef.current = false;
@@ -473,7 +470,7 @@ export default function App() {
     const allSubWavesSpawned = currentWaveDef && currentWaveDef.subWaves.every((_, subIdx) =>
       subWaveSpawnedRef.current.has(`${currentWaveIdx}-${subIdx}`)
     );
-    const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0 && pendingZombiesRef.current.length === 0;
+    const hasClearedWave5 = currentWaveIdx >= GAME_WAVES.length - 1 && allSubWavesSpawned && zombiesRef.current.length === 0;
 
     if (nextQuizCorrect >= 25 && hasClearedWave5) {
       recordLevelCompletion();
@@ -644,11 +641,25 @@ export default function App() {
               // Spawn the zombies
               subWave.zombies.forEach((zDef, zIdx) => {
                 const assignedRow = zDef.row !== undefined ? zDef.row : Math.floor(Math.random() * GRID_ROWS);
-                pendingZombiesRef.current.push({
+                const isCone = zDef.type === 'conehead';
+                const isBucket = zDef.type === 'buckethead';
+                const isFlag = zDef.type === 'flag';
+                const hp = ZOMBIE_BODY_HP;
+                const speed = isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL;
+                zombiesRef.current.push({
                   id: `zombie-${Date.now()}-${zIdx}-${Math.random()}`,
                   type: zDef.type,
                   row: assignedRow,
-                  xOffset: zIdx * 35
+                  x: ZOMBIE_SPAWN_X + zIdx * 35,
+                  hp,
+                  maxHp: hp,
+                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
+                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
+                  speed,
+                  isEating: false,
+                  eatingTargetId: null,
+                  slowTimer: 0,
+                  animTime: Math.random() * 5
                 });
               });
 
@@ -676,8 +687,7 @@ export default function App() {
 
             if (finalWaveSpawnAccumulatorRef.current >= 5 && finalWaveDynamicSpawnedRef.current < dynamicTarget) {
               finalWaveSpawnAccumulatorRef.current = 0;
-              const queueCapacity = Math.max(0, 20 - pendingZombiesRef.current.length);
-              const batchSize = Math.min(3, dynamicTarget - finalWaveDynamicSpawnedRef.current, queueCapacity);
+              const batchSize = Math.min(3, dynamicTarget - finalWaveDynamicSpawnedRef.current);
               const batchIndex = Math.floor(finalWaveDynamicSpawnedRef.current / 3);
               // Kelompok bergantian ke lima jalur; anggota satu kelompok datang pada jalur sama.
               const row = batchIndex % GRID_ROWS;
@@ -691,11 +701,24 @@ export default function App() {
                     : dynamicIndex % 3 === 2
                       ? 'conehead'
                       : 'basic';
-                pendingZombiesRef.current.push({
+                const isCone = type === 'conehead';
+                const isBucket = type === 'buckethead';
+                const isFlag = type === 'flag';
+                const hp = ZOMBIE_BODY_HP;
+                zombiesRef.current.push({
                   id: `final-overtime-${Date.now()}-${dynamicIndex}-${Math.random()}`,
                   type,
                   row,
-                  xOffset: i * 34
+                  x: ZOMBIE_SPAWN_X + i * 34,
+                  hp,
+                  maxHp: hp,
+                  coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
+                  bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
+                  speed: isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL,
+                  isEating: false,
+                  eatingTargetId: null,
+                  slowTimer: 0,
+                  animTime: Math.random() * 5
                 });
               }
 
@@ -705,31 +728,6 @@ export default function App() {
                 soundCooldownRef.current['groan'] = 8.0;
               }
             }
-          }
-
-          // Drain the spawn queue gradually. A maximum of 10 detailed zombie SVGs
-          // are alive at once; scheduled and overtime enemies are retained in order.
-          while (zombiesRef.current.length < 10 && pendingZombiesRef.current.length > 0) {
-            const pending = pendingZombiesRef.current.shift()!;
-            const isCone = pending.type === 'conehead';
-            const isBucket = pending.type === 'buckethead';
-            const isFlag = pending.type === 'flag';
-            const hp = ZOMBIE_BODY_HP;
-            zombiesRef.current.push({
-              id: pending.id,
-              type: pending.type,
-              row: pending.row,
-              x: ZOMBIE_SPAWN_X + pending.xOffset,
-              hp,
-              maxHp: hp,
-              coneHp: isCone ? ZOMBIE_CONE_ARMOR_HP : undefined,
-              bucketHp: isBucket ? ZOMBIE_BUCKET_ARMOR_HP : undefined,
-              speed: isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL,
-              isEating: false,
-              eatingTargetId: null,
-              slowTimer: 0,
-              animTime: Math.random() * 5
-            });
           }
 
           // Check wave banner alert
