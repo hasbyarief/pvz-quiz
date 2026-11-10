@@ -207,6 +207,8 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
             key={`mower-${mower.row}`}
             className="absolute z-10 pointer-events-none"
             style={{
+              left: 0,
+              top: 0,
               width: 84,
               height: 66,
               transform: `translate3d(${mower.x + 10}px, ${mower.row * CELL_HEIGHT + (CELL_HEIGHT - 66) / 2}px, 0)`
@@ -252,6 +254,8 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
             key={zombie.id}
             className="absolute z-20 pointer-events-none"
             style={{
+              left: 0,
+              top: 0,
               width: 78.75,
               height: 105,
               transform: `translate3d(${zombie.x - 37.5}px, ${y + (CELL_HEIGHT - 105) / 2}px, 0)`
@@ -287,6 +291,8 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
             title={sun.isQuiz ? "Matahari Kuis (+50 Poin) - Jawab Soal" : "Matahari Biasa (+25 Poin)"}
             className="absolute z-40 cursor-pointer flex items-center justify-center select-none"
             style={{
+              left: 0,
+              top: 0,
               width: 90,
               height: 90,
               transform: `translate3d(${sun.x - 45}px, ${sun.y - 45}px, 0)`,
