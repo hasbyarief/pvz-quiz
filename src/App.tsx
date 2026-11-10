@@ -629,14 +629,6 @@ export default function App() {
               // Spawn the zombies
               subWave.zombies.forEach((zDef, zIdx) => {
                 const assignedRow = zDef.row !== undefined ? zDef.row : Math.floor(Math.random() * GRID_ROWS);
-                const isCone = zDef.type === 'conehead';
-                const isBucket = zDef.type === 'buckethead';
-                const isFlag = zDef.type === 'flag';
-
-                // Ketahanan mengikuti PvZ original: tubuh 270 HP, helm/ember terpisah.
-                const hp = ZOMBIE_BODY_HP;
-                const speed = isFlag ? ZOMBIE_SPEED_FLAG : ZOMBIE_SPEED_NORMAL;
-
                 pendingZombiesRef.current.push({
                   id: `zombie-${Date.now()}-${zIdx}-${Math.random()}`,
                   type: zDef.type,
@@ -645,7 +637,7 @@ export default function App() {
                 });
               });
 
-              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0)) {
                 soundManager.playZombieGroan();
                 soundCooldownRef.current['groan'] = 8.0;
               }
@@ -669,7 +661,8 @@ export default function App() {
 
             if (finalWaveSpawnAccumulatorRef.current >= 5 && finalWaveDynamicSpawnedRef.current < dynamicTarget) {
               finalWaveSpawnAccumulatorRef.current = 0;
-              const batchSize = Math.min(3, dynamicTarget - finalWaveDynamicSpawnedRef.current);
+              const queueCapacity = Math.max(0, 20 - pendingZombiesRef.current.length);
+              const batchSize = Math.min(3, dynamicTarget - finalWaveDynamicSpawnedRef.current, queueCapacity);
               const batchIndex = Math.floor(finalWaveDynamicSpawnedRef.current / 3);
               // Kelompok bergantian ke lima jalur; anggota satu kelompok datang pada jalur sama.
               const row = batchIndex % GRID_ROWS;
@@ -683,11 +676,6 @@ export default function App() {
                     : dynamicIndex % 3 === 2
                       ? 'conehead'
                       : 'basic';
-                const isCone = type === 'conehead';
-                const isBucket = type === 'buckethead';
-                const isFlag = type === 'flag';
-                const hp = ZOMBIE_BODY_HP;
-
                 pendingZombiesRef.current.push({
                   id: `final-overtime-${Date.now()}-${dynamicIndex}-${Math.random()}`,
                   type,
@@ -697,7 +685,7 @@ export default function App() {
               }
 
               finalWaveDynamicSpawnedRef.current += batchSize;
-              if (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
+              if (batchSize > 0 && (!soundCooldownRef.current['groan'] || soundCooldownRef.current['groan'] <= 0) {
                 soundManager.playZombieGroan();
                 soundCooldownRef.current['groan'] = 8.0;
               }
