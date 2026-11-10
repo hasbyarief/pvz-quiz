@@ -205,12 +205,11 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
         return (
           <div
             key={`mower-${mower.row}`}
-            className="absolute z-10 transition-transform pointer-events-none"
+            className="absolute z-10 pointer-events-none"
             style={{
-              left: mower.x + 10,
-              top: mower.row * CELL_HEIGHT + (CELL_HEIGHT - 66) / 2,
               width: 84,
-              height: 66
+              height: 66,
+              transform: `translate3d(${mower.x + 10}px, ${mower.row * CELL_HEIGHT + (CELL_HEIGHT - 66) / 2}px, 0)`
             }}
           >
             <LawnMowerSVG isActive={mower.state === 'triggered'} />
@@ -251,14 +250,11 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
         return (
           <div
             key={zombie.id}
-            className="absolute z-20 pointer-events-none transition-transform"
+            className="absolute z-20 pointer-events-none"
             style={{
-              left: zombie.x - 37.5,
-              // Render all zombie types at 75% scale. Keep the lower edge aligned
-              // with the same lane baseline so shrinking does not make zombies float.
-              top: y + (CELL_HEIGHT - 105) / 2,
               width: 78.75,
-              height: 105
+              height: 105,
+              transform: `translate3d(${zombie.x - 37.5}px, ${y + (CELL_HEIGHT - 105) / 2}px, 0)`
             }}
           >
             <ZombieSVG
@@ -267,7 +263,6 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
               isSlowed={zombie.slowTimer > 0}
               coneHp={zombie.coneHp}
               bucketHp={zombie.bucketHp}
-              animTime={zombie.animTime}
             />
           </div>
         );
@@ -292,22 +287,21 @@ export const LawnGrid: React.FC<LawnGridProps> = ({
             title={sun.isQuiz ? "Matahari Kuis (+50 Poin) - Jawab Soal" : "Matahari Biasa (+25 Poin)"}
             className="absolute z-40 cursor-pointer flex items-center justify-center select-none"
             style={{
-              left: sun.x - 45,
-              top: sun.y - 45,
               width: 90,
               height: 90,
+              transform: `translate3d(${sun.x - 45}px, ${sun.y - 45}px, 0)`,
               opacity: sun.isCollected ? Math.max(0, 1 - sun.collectAnimProgress) : 1,
               pointerEvents: sun.isCollected ? 'none' : 'auto',
               touchAction: 'none'
             }}
           >
             {/* Decoupled Visual Sun with generous drop-shadow & smooth hover */}
-            <div className="w-[72px] h-[72px] pointer-events-none transition-transform duration-150 hover:scale-115 active:scale-95 drop-shadow-[0_0_14px_rgba(250,204,21,0.7)] animate-pulse relative">
+            <div className="w-[72px] h-[72px] pointer-events-none relative">
               <SunSVG className="w-full h-full" isQuiz={sun.isQuiz} />
 
               {/* Tanda tanya badge mengambang di pojok matahari quiz */}
               {sun.isQuiz && (
-                <div className="absolute -top-1 -right-1 bg-amber-400 text-slate-950 font-black text-[11px] w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-slate-900 animate-bounce font-mono">
+                <div className="absolute -top-1 -right-1 bg-amber-400 text-slate-950 font-black text-[11px] w-5 h-5 rounded-full flex items-center justify-center shadow-md border border-slate-900 font-mono">
                   ?
                 </div>
               )}
