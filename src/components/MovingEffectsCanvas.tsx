@@ -98,7 +98,13 @@ export const MovingEffectsCanvas = React.memo<MovingEffectsCanvasProps>(
         ref={canvasRef}
         aria-hidden="true"
         className="absolute inset-0 z-[35] w-full h-full pointer-events-none"
-        style={{ width: STAGE_WIDTH, height: LAWN_HEIGHT }}
+        // Screen blending prevents an opaque-black fallback canvas from hiding the lawn.
+        style={{
+          width: STAGE_WIDTH,
+          height: LAWN_HEIGHT,
+          backgroundColor: 'transparent',
+          mixBlendMode: 'screen'
+        }}
       />
     );
   }
